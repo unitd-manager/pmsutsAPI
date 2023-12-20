@@ -241,40 +241,55 @@ app.post('/getLeave', (req, res, next) => {
                 });
               });
 
- app.post('/insertLeave', (req, res, next) => {
+app.post('/insertLeave', (req, res, next) => {
+  // Extract relevant information from the request body
+  let { employee_id, leave_type, from_date, to_date, reason, creation_date, modification_date, created_by, modified_by } = req.body;
 
- let data = {date	: new Date().toISOString()	
-  , employee_id: req.body.employee_id
-  , leave_type: req.body.leave_type
-  , from_date: req.body.from_date
-  , to_date: req.body.to_date
-  , reason	: req.body.reason
-  , creation_date	: req.body.creation_date
-  , modification_date: req.body.modification_date
-  , created_by: req.body.created_by
-  , modified_by: req.body.modified_by
-  , no_of_days: req.body.no_of_days
-  , status	: 'Applied'	
-  , no_of_days_next_month	: req.body.no_of_days_next_month	
-  , went_overseas:0};
-                let sql = "INSERT INTO empleave SET ?";
-                let query = db.query(sql, data,(err, result) => {
-                  if (err) {
-                    console.log('error: ', err)
-                    return res.status(400).send({
-                      data: err,
-                      msg: 'failed',
-                    })
-                  } else {
-                    return res.status(200).send({
-                      data: result,
-                      msg: 'Success',
-                        });
-                  
-                  }
-                });
-              });
+  // Calculate no_of_days and ensure a minimum value of 1
+  let from = new Date(from_date);
+  let to = new Date(to_date);
+  let no_of_days = Math.max(Math.ceil((to - from) / (1000 * 60 * 60 * 24)) + 1, 1);
 
+  // Assuming a date format like 'yyyy-mm-dd'
+  let fromMonth = new Date(from_date).getMonth() + 1;
+  let toMonth = new Date(to_date).getMonth() + 1;
+  let no_of_days_next_month = (toMonth !== fromMonth) ? 0 + to.getDate() : 0;
+
+  // Prepare the data object for insertion
+  let data = {
+    date: new Date().toISOString(),
+    employee_id,
+    leave_type,
+    from_date,
+    to_date,
+    reason,
+    creation_date,
+    modification_date,
+    created_by,
+    modified_by,
+    no_of_days,
+    status: 'Applied',
+    no_of_days_next_month,
+    went_overseas: 0
+  };
+
+  // Execute the SQL INSERT statement
+  let sql = "INSERT INTO empleave SET ?";
+  let query = db.query(sql, data, (err, result) => {
+    if (err) {
+      console.log('error: ', err);
+      return res.status(400).send({
+        data: err,
+        msg: 'failed',
+      });
+    } else {
+      return res.status(200).send({
+        data: result,
+        msg: 'Success',
+      });
+    }
+  });
+});
      app.post('/deleteLeave', (req, res, next) => {
 
                 let data = {leave_id: req.body.leave_id};
@@ -301,7 +316,8 @@ db.query(`SELECT
     MONTH(l.from_date) AS leave_month,
     l.employee_id,
     l.leave_type,
-    l.no_of_days
+    l.no_of_days,
+  (l.no_of_days + l.no_of_days_next_month) As totalday
 FROM 
     empleave l
 WHERE 
@@ -333,11 +349,13 @@ db.query(`SELECT
     l.employee_id,
     SUM(l.no_of_days) AS TotalLeave,
     SUM(CASE WHEN YEAR(l.from_date) = YEAR(CURRENT_DATE()) THEN l.no_of_days ELSE 0 END) AS TotalLeaveThisYear,
-    SUM(CASE WHEN YEAR(l.from_date) = YEAR(CURRENT_DATE()) AND MONTH(l.from_date) = MONTH(CURRENT_DATE()) THEN l.no_of_days ELSE 0 END) AS TotalLeaveThisMonth
+    SUM(CASE WHEN YEAR(l.from_date) = YEAR(CURRENT_DATE()) AND MONTH(l.from_date) = MONTH(CURRENT_DATE()) THEN l.no_of_days
+             WHEN YEAR(l.to_date) = YEAR(CURRENT_DATE()) AND MONTH(l.to_date) = MONTH(CURRENT_DATE()) THEN l.no_of_days
+             ELSE 0 END) AS TotalLeaveThisMonth
 FROM 
     empleave l
 WHERE 
-    l.employee_id =  ${db.escape(req.body.employee_id)}
+    l.employee_id = ${db.escape(req.body.employee_id)}
 GROUP BY 
     l.employee_id`,
                   (err, result) => {
@@ -368,3 +386,4 @@ GROUP BY
   });
   
   module.exports = app;
+  
