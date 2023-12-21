@@ -17,7 +17,7 @@ app.use(fileUpload({
     createParentPath: true
 }));
 app.get('/getLead', (req, res, next) => {
-  db.query(`SELECT a.* ,pe.employee_name ,c.company_name FROM lead a LEFT JOIN (employee pe) ON (pe.employee_id = a.employee_id) LEFT JOIN (company c) ON (c.company_id = a.company_id)
+  db.query(`SELECT a.* ,pe.first_name ,c.company_name FROM lead a LEFT JOIN (employee pe) ON (pe.employee_id = a.employee_id) LEFT JOIN (company c) ON (c.company_id = a.company_id)
   Where a.lead_id !=''`,
     (err, result) => {
       if (err) {
@@ -40,8 +40,22 @@ app.post('/getLeadById', (req, res, next) => {
   db.query(`Select 
   pm.lead_id,
   pm.lead_title,
+  pm.source_of_lead,
+  pm.lead_status,
+  pm.address,
+  pm.country,
+  pm.postal_code,
+  pm.email,
+  pm.phone_number,
+  pm.lead_date,
+  pm.service_of_interest,
+  pm.budget,
+  pm.priority,
+  pm.interaction_type,
+  pm.followup_date,
+  pm.notes,
   e.employee_id,
-  e.employee_name,
+  e.first_name,
   c.company_id,
   c.company_name
   From lead pm
@@ -70,8 +84,24 @@ app.post('/getLeadById', (req, res, next) => {
 app.post('/editLead', (req, res, next) => {
   db.query(`UPDATE lead 
             SET lead_title=${db.escape(req.body.lead_title)}
-            ,company_id=${db.escape(req.body.description)}
+            ,company_id=${db.escape(req.body.company_id)}
             ,employee_id=${db.escape(req.body.employee_id)}
+            ,lead_date=${db.escape(req.body.lead_date)}
+            ,phone_number=${db.escape(req.body.phone_number)}
+            ,lead_status=${db.escape(req.body.lead_status)}
+            ,source_of_lead=${db.escape(req.body.source_of_lead)}
+            ,email=${db.escape(req.body.email)}
+            ,address=${db.escape(req.body.address)}
+            ,country=${db.escape(req.body.country)}
+            ,postal_code=${db.escape(req.body.postal_code)}
+            ,service_of_interest=${db.escape(req.body.service_of_interest)}
+            ,budget=${db.escape(req.body.budget)}
+            ,priority=${db.escape(req.body.priority)}
+            ,interaction_type=${db.escape(req.body.interaction_type)}
+            ,followup_date=${db.escape(req.body.followup_date)}
+            ,notes=${db.escape(req.body.notes)}
+            ,modification_date=${db.escape(req.body.modification_date)}
+            ,modified_by=${db.escape(req.body.modified_by)}
             WHERE lead_id=${db.escape(req.body.lead_id)}`,
             (err, result) => {
               if (err) {
@@ -94,7 +124,7 @@ app.post('/editLead', (req, res, next) => {
         app.get("/getEmployeeName", (req, res, next) => {
           db.query(
             `SELECT
-          employee_name,employee_id
+          first_name,employee_id
            From employee 
           `,
             (err, result) => {
@@ -166,12 +196,35 @@ app.post('/editClients', (req, res, next) => {
   );
 });
 
+app.get('/getCountry', (req, res, next) => {
+  db.query(
+    `SELECT * from geo_country`,
+    (err, result) => {
+      if (err) {
+        console.log('error: ', err)
+        return res.status(400).send({
+          data: err,
+          msg: 'failed',
+        })
+      } else {
+        return res.status(200).send({
+          data: result,
+          msg: 'Success',
+        })
+      }
+    },
+  )
+})
+
 
 app.post('/insertLeadCompany', (req, res, next) => {
 
           let data = { company_id	: req.body.company_id
             , lead_title: req.body.lead_title
             ,employee_id:req.body.employee_id
+            ,source_of_lead:req.body.source_of_lead
+            ,creation_date:req.body.creation_date
+            ,created_by:req.body.created_by
          };
           let sql = "INSERT INTO lead SET ?";
           let query = db.query(sql, data, (err, result) => {
@@ -257,6 +310,185 @@ app.delete('/deleteCompany', (req, res, next) => {
           return res.status(200).send({
             data: result,
             msg:'Success'
+          });
+    }
+  });
+});
+
+app.post('/editCommunicationItem', (req, res, next) => {
+  db.query(`UPDATE  history_of_communication 
+            SET communication_date =${db.escape(req.body.communication_date)}
+            ,communication_type=${db.escape(req.body.communication_type)}
+            ,topic=${db.escape(req.body.topic)}
+            ,modification_date=${db.escape(req.body.modification_date)}
+            ,modified_by=${db.escape(req.body.modified_by)}
+            ,description=${db.escape(req.body.description)}
+            ,status=${db.escape(req.body.status)}
+            ,result=${db.escape(req.body.result)}
+            ,priority=${db.escape(req.body.priority)}
+            ,duration=${db.escape(req.body.duration)}
+            WHERE history_of_communication_id = ${db.escape(req.body.history_of_communication_id)}`,
+    (err, result) => {
+     
+      if (err) {
+        console.log('error: ', err)
+        return res.status(400).send({
+          data: err,
+          msg: 'failed',
+        })
+      } else {
+        return res.status(200).send({
+          data: result,
+          msg: 'Success',
+            });
+      }
+     }
+  );
+});
+
+
+app.post('/getCommunicationItemById', (req, res, next) => {
+  db.query(`select a.*
+  
+            From  history_of_communication  a
+            
+            Where a.lead_id =${db.escape(req.body.lead_id)}`,
+    (err, result) => {
+      if (err) {
+        console.log('error: ', err)
+        return res.status(400).send({
+          data: err,
+          msg: 'failed',
+        })
+      } else {
+        return res.status(200).send({
+          data: result,
+          msg: 'Success',
+            });
+
+        }
+ 
+    }
+  );
+});
+
+
+app.post('/getFollowupItemById', (req, res, next) => {
+  db.query(`select a.*
+  
+            From  followup_tasks   a
+            
+            Where a.lead_id =${db.escape(req.body.lead_id)}`,
+    (err, result) => {
+      if (err) {
+        console.log('error: ', err)
+        return res.status(400).send({
+          data: err,
+          msg: 'failed',
+        })
+      } else {
+        return res.status(200).send({
+          data: result,
+          msg: 'Success',
+            });
+
+        }
+ 
+    }
+  );
+});
+
+app.post('/editFollowupItem', (req, res, next) => {
+  db.query(`UPDATE  followup_tasks 
+            SET description =${db.escape(req.body.description)}
+            ,due_date=${db.escape(req.body.due_date)}
+            ,employee_id=${db.escape(req.body.employee_id)}
+            ,modification_date=${db.escape(req.body.modification_date)}
+            ,modified_by=${db.escape(req.body.modified_by)}
+            ,priority=${db.escape(req.body.priority)}
+            ,status=${db.escape(req.body.status)}
+            
+            WHERE followup_tasks_id = ${db.escape(req.body.followup_tasks_id)}`,
+    (err, result) => {
+     
+      if (err) {
+        console.log('error: ', err)
+        return res.status(400).send({
+          data: err,
+          msg: 'failed',
+        })
+      } else {
+        return res.status(200).send({
+          data: result,
+          msg: 'Success',
+            });
+      }
+     }
+  );
+});
+
+
+app.post('/insertCommunicationItems', (req, res, next) => {
+
+  let data = {
+    lead_id:req.body.lead_id
+    ,history_of_communication_id: req.body.history_of_communication_id
+    , communication_date: req.body.communication_date
+    , communication_type:req.body.communication_type
+    , created_by: req.body.created_by
+    , topic: req.body.topic
+    , created_by: req.body.created_by
+    , creation_date: req.body.creation_date
+    , description: req.body.description
+    ,status: req.body.status
+    , result: req.body.result
+    , priority: req.body.priority
+    , duration: req.body.duration
+  
+ };
+  let sql = "INSERT INTO history_of_communication SET ?";
+  let query = db.query(sql, data,(err, result) => {
+    if (err) {
+     return res.status(400).send({
+            data: err,
+            msg:'Failed'
+          });
+    } else {
+          return res.status(200).send({
+            data: result,
+            msg:'New communication item has been created successfully'
+          });
+    }
+  });
+});
+
+app.post('/insertFollowupItems', (req, res, next) => {
+
+  let data = {
+    lead_id:req.body.lead_id
+    ,followup_tasks_id: req.body.followup_tasks_id 
+    , description: req.body.description
+    , due_date:req.body.due_date
+    , created_by: req.body.created_by
+    , employee_id: req.body.employee_id
+    , created_by: req.body.created_by
+    , creation_date: req.body.creation_date
+    , priority: req.body.priority
+    ,status: req.body.status
+    
+  
+ };
+  let sql = "INSERT INTO followup_tasks SET ?";
+  let query = db.query(sql, data,(err, result) => {
+    if (err) {
+     return res.status(400).send({
+            data: err,
+            msg:'Failed'
+          });
+    } else {
+          return res.status(200).send({
+            data: result,
+            msg:'New Followup item has been created successfully'
           });
     }
   });
@@ -374,6 +606,46 @@ app.delete('/deleteContact', (req, res, next) => {
           return res.status(200).send({
             data: result,
             msg:'Success'
+          });
+    }
+  });
+});
+
+app.post('/deleteCommunicationItem', (req, res, next) => {
+
+  let data = {history_of_communication_id: req.body.history_of_communication_id};
+  let sql = "DELETE FROM   history_of_communication  WHERE ?";
+  let query = db.query(sql, data,(err, result) => {
+    if (err) {
+      console.log('error: ', err)
+      return res.status(400).send({
+        data: err,
+        msg: 'failed',
+      })
+    } else {
+      return res.status(200).send({
+        data: result,
+        msg: 'Success',
+          });
+    }
+  });
+});
+
+app.post('/deleteFollowupItem', (req, res, next) => {
+
+  let data = {followup_tasks_id: req.body.followup_tasks_id};
+  let sql = "DELETE FROM  followup_tasks  WHERE ?";
+  let query = db.query(sql, data,(err, result) => {
+    if (err) {
+      console.log('error: ', err)
+      return res.status(400).send({
+        data: err,
+        msg: 'failed',
+      })
+    } else {
+      return res.status(200).send({
+        data: result,
+        msg: 'Success',
           });
     }
   });
