@@ -455,8 +455,9 @@ app.post('/import2/excel', ( req, res ) => {
   )
   function insertRows(connection) {
       connection.query(
-        "INSERT INTO leads (`lead_title`, `designation`,`address`, `email`,`phone_number`) VALUES (?,?,?,?);",
-        [parsed_data[count.length].CompanyName,parsed_data[count.length].Designation, parsed_data[count.length].Address, parsed_data[count.length].Email, parsed_data[count.length].PhoneNo],
+        "INSERT INTO leads (`lead_title`,`store`,`address`,`phone_number`,`lead_status`,`country`,`source_of_lead`) VALUES (?,?,?,?,?,?,?);",
+        [parsed_data[count.length].CompanyName,parsed_data[count.length].Store, parsed_data[count.length].Address,parsed_data[count.length].PhoneNo
+        , parsed_data[count.length].Status,parsed_data[count.length].Country, parsed_data[count.length].SourceOfLinked],
           ( err, rslt ) => {
               if( err ){
                   connection.rollback(() => {console.log(err);});
