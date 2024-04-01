@@ -16,6 +16,90 @@ app.use(cors());
 app.use(fileUpload({
     createParentPath: true
 }));
+app.get('/getEmployeeNameByColdCall', (req, res, next) => {
+  db.query(
+
+    `SELECT 
+    e.employee_id,
+    e.first_name,
+    l.lead_date,
+    c.company_name,
+    COUNT(l.employee_id) AS cold_call_count
+   FROM Leads l
+   LEFT JOIN employee e ON e.employee_id = l.employee_id
+   LEFT JOIN (company c) ON (c.company_id = l.company_id)
+   Where l.lead_id !=''
+   GROUP BY e.employee_id, e.first_name `,
+               (err, result) => {
+      if (err) {
+        console.log("Error fetching data:", err);
+        res.status(500).send({ msg: 'Error fetching employee data' });
+        return;
+      }
+
+      if (result.length > 0) {
+        res.status(200).send({
+          data: result,
+          msg: 'Success'
+        });
+      } else {
+        res.status(404).send({ msg: 'No employee data found' });
+      }
+    }
+  );
+});
+app.get('/getLeadStats', (req, res, next) => {
+  db.query(`SELECT a.* ,pe.first_name ,c.company_name 
+  FROM leads
+  
+  a LEFT JOIN (employee pe) 
+  ON (pe.employee_id = a.employee_id) 
+  LEFT JOIN (company c) 
+  ON (c.company_id = a.company_id)
+  Where a.lead_id !=''`,
+    (err, result) => {
+      if (err) {
+        console.log("error: ", err);
+        return;
+      } else {
+            return res.status(200).send({
+              data: result,
+              msg:'Success'
+            });
+
+        }
+ 
+    }
+  );
+});
+app.post('/getSalesStaffName', (req, res, next) => {
+  db.query(`
+  SELECT 
+pt.employee_id,
+e.first_name
+FROM project_task pt
+LEFT JOIN employee e on e.employee_id=pt.employee_id
+WHERE pt.project_id=${db.escape(req.body.project_id)}
+GROUP BY pt.employee_id`,
+    (err, result) => {
+      if (err) {
+        console.log('error: ', err)
+        return res.status(400).send({
+          data: err,
+          msg: 'failed',
+        })
+      } else {
+        return res.status(200).send({
+          data: result,
+          msg: 'Success',
+            });
+
+        }
+ 
+
+}
+);
+});
 
 app.post('/getStatsId', (req, res, next) => {
   db.query(`SELECT

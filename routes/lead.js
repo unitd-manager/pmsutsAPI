@@ -17,7 +17,7 @@ app.use(fileUpload({
     createParentPath: true
 }));
 app.get('/getLead', (req, res, next) => {
-  db.query(`SELECT a.* ,pe.first_name ,c.company_name FROM lead a LEFT JOIN (employee pe) ON (pe.employee_id = a.employee_id) LEFT JOIN (company c) ON (c.company_id = a.company_id)
+  db.query(`SELECT a.* ,pe.first_name ,c.company_name FROM leads a LEFT JOIN (employee pe) ON (pe.employee_id = a.employee_id) LEFT JOIN (company c) ON (c.company_id = a.company_id)
   Where a.lead_id !=''`,
     (err, result) => {
       if (err) {
@@ -58,7 +58,7 @@ app.post('/getLeadById', (req, res, next) => {
   e.first_name,
   c.company_id,
   c.company_name
-  From lead pm
+  From leads pm
   LEFT JOIN employee e ON pm.employee_id = e.employee_id
   LEFT JOIN company c ON pm.company_id = c.company_id
   Where pm.lead_id=${db.escape(req.body.lead_id)}`,
@@ -82,7 +82,7 @@ app.post('/getLeadById', (req, res, next) => {
 });
 
 app.post('/editLead', (req, res, next) => {
-  db.query(`UPDATE lead 
+  db.query(`UPDATE leads 
             SET lead_title=${db.escape(req.body.lead_title)}
             ,company_id=${db.escape(req.body.company_id)}
             ,employee_id=${db.escape(req.body.employee_id)}
@@ -120,7 +120,8 @@ app.post('/editLead', (req, res, next) => {
           );
         });
 
-
+        
+        
         app.get("/getEmployeeName", (req, res, next) => {
           db.query(
             `SELECT
