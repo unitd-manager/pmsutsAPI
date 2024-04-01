@@ -16,6 +16,40 @@ app.use(cors());
 app.use(fileUpload({
     createParentPath: true
 }));
+
+
+
+app.get('/getEmployeeNameByColdCall', (req, res, next) => {
+  db.query(
+    `SELECT
+    e.employee_id,
+    e.first_name,
+    l.lead_date,
+    COUNT(l.employee_id) AS cold_call_count
+   FROM Leads l
+   LEFT JOIN employee e ON e.employee_id = l.employee_id
+  
+   GROUP BY  e.first_name `,
+    // WHERE l.cold_call = 1`, // Assuming cold_call is a boolean or integer field in the lead table
+     // Assuming cold_call is passed as a query parameter (e.g., 1 for true or 0 for false)
+    (err, result) => {
+      if (err) {
+        console.log("Error fetching data:", err);
+        res.status(500).send({ msg: 'Error fetching employee data' });
+        return;
+      }
+
+      if (result.length > 0) {
+        res.status(200).send({
+          data: result,
+          msg: 'Success'
+        });
+      } else {
+        res.status(404).send({ msg: 'No employee data found' });
+      }
+    }
+  );
+});
 app.get('/getLead', (req, res, next) => {
   db.query(`SELECT a.* ,pe.first_name ,c.company_name FROM leads a LEFT JOIN (employee pe) ON (pe.employee_id = a.employee_id) LEFT JOIN (company c) ON (c.company_id = a.company_id)
   Where a.lead_id !=''`,
@@ -80,6 +114,59 @@ app.post('/getLeadById', (req, res, next) => {
     }
   );
 });
+
+
+
+
+app.post('/getLeadsById', (req, res, next) => {
+  db.query(`
+  SELECT 
+    pm.lead_id,
+    pm.lead_title,
+    pm.source_of_lead,
+    pm.lead_status,
+    pm.address,
+    pm.country,
+    pm.postal_code,
+    pm.email,
+    pm.phone_number,
+    pm.lead_date,
+    pm.service_of_interest,
+    pm.budget,
+    pm.priority,
+    pm.interaction_type,
+    pm.cold_call,
+    pm.followup_date,
+    pm.notes,
+    e.employee_id,
+    e.first_name,
+    c.company_id,
+    c.company_name
+  FROM leads pm
+  LEFT JOIN employee e ON pm.employee_id = e.employee_id
+  LEFT JOIN company c ON pm.company_id = c.company_id
+  WHERE pm.employee_id = ${db.escape(req.body.employee_id)}`,
+    (err, result) => {
+      if (err) {
+        console.log('error: ', err)
+        return res.status(400).send({
+          data: err,
+          msg: 'failed',
+        })
+      } else {
+        return res.status(200).send({
+          data: result,
+          msg: 'Success',
+            });
+
+        }
+ 
+    }
+  );
+});
+
+
+ 
 
 app.post('/editLead', (req, res, next) => {
   db.query(`UPDATE leads 
@@ -220,14 +307,13 @@ app.get('/getCountry', (req, res, next) => {
 
 app.post('/insertLeadCompany', (req, res, next) => {
 
-          let data = { company_id	: req.body.company_id
-            , lead_title: req.body.lead_title
+          let data = {  lead_title: req.body.lead_title
             ,employee_id:req.body.employee_id
             ,source_of_lead:req.body.source_of_lead
             ,creation_date:req.body.creation_date
             ,created_by:req.body.created_by
          };
-          let sql = "INSERT INTO lead SET ?";
+          let sql = "INSERT INTO leads SET ?";
           let query = db.query(sql, data, (err, result) => {
             if (err) {
               console.log('error: ', err)
@@ -244,6 +330,8 @@ app.post('/insertLeadCompany', (req, res, next) => {
           }
         );
       });
+
+
 
 app.post('/insertCompany', (req, res, next) => {
 
@@ -429,6 +517,68 @@ app.post('/editFollowupItem', (req, res, next) => {
 });
 
 
+
+app.post('/import2/excel', ( req, res ) => {
+  const { data } = req.body;
+  const parsed_data = JSON.parse(data);
+
+  const limit = parsed_data.length;
+  const count = [];
+  const connection = db;
+  
+  connection.beginTransaction(
+      ( err ) => {
+          if ( err )
+          {
+              connection.rollback(() => {console.log(err);});
+          }else
+          {
+              insertRows(connection);
+          }
+      }
+  )
+  function insertRows(connection) {
+      connection.query(
+        "INSERT INTO leads (`lead_title`,`store`,`address`,`phone_number`,`lead_status`,`country`,`source_of_lead`) VALUES (?,?,?,?,?,?,?);",
+        [parsed_data[count.length].CompanyName,parsed_data[count.length].Store, parsed_data[count.length].Address,parsed_data[count.length].PhoneNo
+        , parsed_data[count.length].Status,parsed_data[count.length].Country, parsed_data[count.length].SourceOfLinked],
+          ( err, rslt ) => {
+              if( err ){
+                  connection.rollback(() => {console.log(err);});
+                  res.send(err);
+                  res.end();
+              }else 
+              {
+                next(connection, parsed_data[count.length].title);
+            }
+                  
+              
+          }
+      );
+  };
+
+  function next(connection, title) {
+      if ( ( count.length + 1 ) === limit )
+      {
+          connection.commit((err) => {
+              if ( err ) {
+                  connection.rollback(() => {console.log(err);});
+                  res.send('err');
+                  res.end();
+              }else
+              {
+                  console.log("RECORDS INSERTED!!!");
+                  res.send('SUCCESS');
+                  res.end();
+              }
+          });
+      }else {
+          console.log(`${title} inserted`);
+          count.push(1);
+          insertRows(connection);
+      }
+  }
+} );
 app.post('/insertCommunicationItems', (req, res, next) => {
 
   let data = {

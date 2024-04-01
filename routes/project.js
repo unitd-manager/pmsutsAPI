@@ -130,6 +130,7 @@ app.post('/getProjectsByIDs', (req, res, next) => {
   p.creation_date,
   p.modification_date,
   p.created_by,
+  p.general,
   p.modified_by,
   CONCAT_WS(' ', cont.first_name, cont.last_name) AS contact_name,
   cont.first_name,
@@ -326,6 +327,7 @@ app.post('/edit-Project', (req, res, next) => {
             ,description=${db.escape(req.body.description)}
             ,modification_date=${db.escape(req.body.modification_date)}
             ,modified_by=${db.escape(req.body.modified_by)}
+            ,general=${db.escape(req.body.general)}
             WHERE project_id =  ${db.escape(req.body.project_id)}`,
     (err, result) => {
       if (err) {
