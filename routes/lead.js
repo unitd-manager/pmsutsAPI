@@ -16,6 +16,40 @@ app.use(cors());
 app.use(fileUpload({
     createParentPath: true
 }));
+
+
+
+app.get('/getEmployeeNameByColdCall', (req, res, next) => {
+  db.query(
+    `SELECT
+    e.employee_id,
+    e.first_name,
+    l.lead_date,
+    COUNT(l.employee_id) AS cold_call_count
+   FROM Leads l
+   LEFT JOIN employee e ON e.employee_id = l.employee_id
+  
+   GROUP BY  e.first_name `,
+    // WHERE l.cold_call = 1`, // Assuming cold_call is a boolean or integer field in the lead table
+     // Assuming cold_call is passed as a query parameter (e.g., 1 for true or 0 for false)
+    (err, result) => {
+      if (err) {
+        console.log("Error fetching data:", err);
+        res.status(500).send({ msg: 'Error fetching employee data' });
+        return;
+      }
+
+      if (result.length > 0) {
+        res.status(200).send({
+          data: result,
+          msg: 'Success'
+        });
+      } else {
+        res.status(404).send({ msg: 'No employee data found' });
+      }
+    }
+  );
+});
 app.get('/getLead', (req, res, next) => {
   db.query(`SELECT a.* ,pe.first_name ,c.company_name FROM leads a LEFT JOIN (employee pe) ON (pe.employee_id = a.employee_id) LEFT JOIN (company c) ON (c.company_id = a.company_id)
   Where a.lead_id !=''`,
@@ -83,6 +117,56 @@ app.post('/getLeadById', (req, res, next) => {
 
 
 
+
+app.post('/getLeadsById', (req, res, next) => {
+  db.query(`
+  SELECT 
+    pm.lead_id,
+    pm.lead_title,
+    pm.source_of_lead,
+    pm.lead_status,
+    pm.address,
+    pm.country,
+    pm.postal_code,
+    pm.email,
+    pm.phone_number,
+    pm.lead_date,
+    pm.service_of_interest,
+    pm.budget,
+    pm.priority,
+    pm.interaction_type,
+    pm.cold_call,
+    pm.followup_date,
+    pm.notes,
+    e.employee_id,
+    e.first_name,
+    c.company_id,
+    c.company_name
+  FROM leads pm
+  LEFT JOIN employee e ON pm.employee_id = e.employee_id
+  LEFT JOIN company c ON pm.company_id = c.company_id
+  WHERE pm.employee_id = ${db.escape(req.body.employee_id)}`,
+    (err, result) => {
+      if (err) {
+        console.log('error: ', err)
+        return res.status(400).send({
+          data: err,
+          msg: 'failed',
+        })
+      } else {
+        return res.status(200).send({
+          data: result,
+          msg: 'Success',
+            });
+
+        }
+ 
+    }
+  );
+});
+
+
+ 
 
 app.post('/editLead', (req, res, next) => {
   db.query(`UPDATE leads 
