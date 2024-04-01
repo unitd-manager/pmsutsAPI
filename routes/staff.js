@@ -68,6 +68,50 @@ app.get('/getStaff', (req, res, next) => {
   );
 });
 
+app.get('/getAPPStaff', (req, res, next) => {
+  db.query(
+    `SELECT  
+     a.staff_id
+    ,a.first_name
+    ,a.email
+    ,a.status
+    ,a.pass_word
+    ,a.user_group_id
+    ,a.team
+    ,a.staff_type
+    ,a.staff_rate
+    ,a.position
+    ,a.published
+    ,a.address_town
+    ,a.address_state
+    ,a.address_street
+    ,a.address_country
+    ,a.creation_date
+    ,a.modification_date
+    ,gc.name AS country_title
+    ,b.title AS user_group_title
+    ,CONCAT_WS(' ', a.first_name, a.last_name ) AS staff_name
+    FROM staff a
+    LEFT JOIN user_group b ON (a.user_group_id = b.user_group_id)
+    LEFT JOIN geo_country gc ON (a.address_country = gc.country_code)
+    WHERE a.staff_id != ''`,
+    (err, result) => {
+      if (err) {
+        console.log('error: ', err);
+        return res.status(400).send({
+          data: err,
+          msg: 'failed',
+        });
+      } else {
+        return res.status(200).send({
+          data: result,
+          msg: 'Staff has been removed successfully',
+        });
+      }
+    }
+  );
+});
+
 app.get('/getStaffTypeFromValueList', (req, res, next) => {
   db.query(
     `SELECT 

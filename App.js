@@ -191,11 +191,20 @@ const employees = [
     {
     name: "Sabina",
   },
+  {
+    name: "Sujitha"
+  }
 ];
 
 cron.schedule(
-  "0 21 * * 1-6",
+  "14 17 * * 1-6",
   () => {
+    const todayDate = new Date().toISOString().slice(0, 10); // Rename currentDate to todayDate
+    const currentDay = new Date().getDay();
+    const weekStart = new Date();
+    weekStart.setDate(weekStart.getDate() - currentDay);
+    const weekStartDate = weekStart.toISOString().slice(0, 10);
+
     let emailContent = `
       <style>
         table {
@@ -218,11 +227,11 @@ cron.schedule(
       <p>Dear Team,</p>
       <br/>
       <p>Please find today's timesheet details:</p>`;
-
+      
     const emailPromises = employees.map((employee) => {
       const employeeName = employee.name;
 
-      return new Promise((resolve, reject) => {
+      const todayQuery = new Promise((resolve, reject) => {
         db.query(
           `SELECT 
             pt.timesheet_title,
@@ -247,12 +256,14 @@ cron.schedule(
           LEFT JOIN project_task t ON t.project_task_id = pt.project_task_id
           LEFT JOIN employee e ON pt.employee_id = e.employee_id
           LEFT JOIN project_milestone m ON m.project_milestone_id = pt.project_milestone_id
-          WHERE pt.date = '${currentDate}' AND e.first_name = '${employeeName}'`,
+          WHERE pt.date = '${todayDate}' AND e.first_name = '${employeeName}'`,
           (err, result) => {
             if (err) {
-              console.log(`Error fetching timesheet data for ${employeeName}:`, err);
+              console.log(`Error fetching today's timesheet data for ${employeeName}:`, err);
               reject(err);
             } else {
+              console.log(`Result for ${employeeName}:`, result);
+             const totalHoursToday = result.reduce((total, row) => total + row.hours, 0);
               const tableRows = result
                 .map((row) => {
                   return `<tr>
@@ -269,6 +280,7 @@ cron.schedule(
               if (tableRows) {
                 emailContent += `
                   <p>Employee Name: <b>${employeeName}</b></p>
+                  <p>Total Hours Today: ${totalHoursToday} hrs</p>
                   <table>
                     <tr>
                       <th>First Name</th>
@@ -281,11 +293,34 @@ cron.schedule(
                     ${tableRows}
                   </table><br/>`;
               }
-              resolve(result);
+
+              resolve({ totalHoursToday, tableRows }); // Resolve an object containing both total hours and table rows
             }
           }
         );
       });
+
+      // Query for current week's total hours
+      const currentWeekQuery = new Promise((resolve, reject) => {
+        db.query(
+          `SELECT 
+            SUM(p.hours) AS total_week_hours
+           FROM project_timesheet p
+           LEFT JOIN employee e ON p.employee_id = e.employee_id
+           WHERE date BETWEEN '${weekStartDate}' AND '${todayDate}' AND e.first_name = '${employeeName}'`,
+          (err, result) => {
+            if (err) {
+              console.log(`Error fetching current week's total hours for ${employeeName}:`, err);
+              reject(err);
+            } else {
+              const totalHoursWeek = result[0].total_week_hours || 0;
+              resolve(totalHoursWeek);
+            }
+          }
+        );
+      });
+
+      return Promise.all([todayQuery, currentWeekQuery]);
     });
 
     Promise.all(emailPromises)
@@ -295,20 +330,23 @@ cron.schedule(
           <p>Regards</p>
           <p>Admin</p>`;
 
-        const API_KEY = "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";
+        const API_KEY = "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";
 
         sgMail.setApiKey(API_KEY);
 
         const data = {
-          to: ["syed@unitdtechnologies.com","moin@unitdtechnologies.com","gobi@unitdtechnologies.com","renuka@unitdtechnologies.com","rafi@unitdtechnologies.com","meera@unitdtechnologies.com","sulfiya@unitdtechnologies.com","muthumari@unitdtechnologies.com","gokila@unitdtechnologies.com","jasmine@unitdtechnologies.com","sabina@unitdtechnologies.com"],
+          to: ["sulfiya@unitdtechnologies.com"],
           from: "notification@unitdtechnologies.com",
-          subject: ` ${currentDate} UTS Tasks Overview`,
+          subject: ` ${todayDate} UTS Tasks Overview`,
           templateId: "d-3250d5edacd24616962f998dedb313d6",
           dynamicTemplateData: {
-            currentDate: currentDate,
+            currentDate: todayDate,
             employees: employees.map((employee, index) => ({
               name: employee.name,
-              timesheetData: results[index],
+              weekStartDate: weekStartDate,
+              timesheetData: results[index][0],
+              total_hours: results[index][0].totalHoursToday,
+              total_hours_week: results[index][1], // Using current week's total hours
             })),
           },
         };
@@ -326,5 +364,167 @@ cron.schedule(
     timezone: "Asia/Kolkata",
   }
 );
+
+// weekly timesheet emails
+
+const today = date.getDay();
+//const diff = date.getDate() - today + (today === 1 ? 0 : today === 0 ? -6 : 1);
+const diff = date.getDate() - today + (today === 0 ? -6 : 1);
+
+const startOfWeek = new Date(date); // Create a new date object for the start of the week
+startOfWeek.setDate(diff);
+
+const endOfWeek = new Date(date); // Create a new date object for the end of the week
+endOfWeek.setDate(diff + 5);
+
+const startDay = String(startOfWeek.getDate()).padStart(2, "0");
+const startMonth = String(startOfWeek.getMonth() + 1).padStart(2, "0");
+const startYear = startOfWeek.getFullYear();
+const startDate = `${startYear}-${startMonth}-${startDay}`;
+
+const endDay = String(endOfWeek.getDate()).padStart(2, "0");
+const endMonth = String(endOfWeek.getMonth() + 1).padStart(2, "0");
+const endYear = endOfWeek.getFullYear();
+const endDate = `${endYear}-${endMonth}-${endDay}`;
+
+cron.schedule(
+    "0 20 * * 6",
+    () => {
+      let emailContent = `
+        <style>
+          table {
+            border-collapse: collapse;
+            width: 100%;
+            border: 1px solid black;
+          }
+          th, td {
+            border: 1px solid black;
+            padding: 5px;
+            text-align: left;
+          }
+          img {
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+          }
+        </style>
+  
+        <p>Dear Team,</p>
+        <br/>
+        <p>Please find this week's timesheet details:</p>`;
+        
+        let totalHours;
+  
+      const emailPromises = employees.map((employee) => {
+        const employeeName = employee.name;
+        
+        
+        return new Promise((resolve, reject) => {
+          db.query(
+            `SELECT 
+              pt.timesheet_title,
+              t.task_title,
+              pt.date,
+              p.title,
+              pt.status,
+              e.first_name,
+              e.employee_id,
+              p.project_id,
+              pt.project_timesheet_id,
+              pt.description,
+              pt.hours,
+              pt.project_milestone_id,
+              pt.project_task_id,
+              (SELECT SUM(pt2.hours)
+               FROM project_timesheet pt2
+               WHERE t.employee_id = e.employee_id AND pt2.project_task_id = t.project_task_id
+              ) AS actual_hours
+            FROM project_timesheet pt
+            LEFT JOIN project p ON pt.project_id = p.project_id
+            LEFT JOIN project_task t ON t.project_task_id = pt.project_task_id
+            LEFT JOIN employee e ON pt.employee_id = e.employee_id
+            LEFT JOIN project_milestone m ON m.project_milestone_id = pt.project_milestone_id
+            WHERE pt.date BETWEEN '${startDate}' AND '${endDate}' AND e.first_name = '${employeeName}'`,
+            (err, result) => {
+              if (err) {
+                console.log(`Error fetching timesheet data for ${employeeName}:`, err);
+                reject(err);
+              } else {
+                //const totalHours = totalHours = result.reduce((acc, row) => acc + (parseFloat(row.hours) || 0), 0);
+                const employeeTotalHours = result.reduce((acc, row) => acc + (+row.hours || 0), 0);
+                totalHours = (totalHours || 0) + employeeTotalHours;
+                const tableRows = result
+                  .map((row,index) => {
+                    return `<tr>
+                      <td>${index+1}</td>
+                      <td>${row.title}</td>
+                      <td>${row.first_name}</td>
+                      <td>${row.task_title}</td>
+                      <td>${row.hours}</td>
+                    </tr>`;
+                  })
+                  .join("");
+  
+                if (tableRows) {
+                  emailContent += `
+                    <p>Employee Name: <b>${employeeName}</b>  Total Hrs(1 Week):${totalHours} </p>
+                    <table>
+                      <tr>
+                        <th>S.No</th>
+                        <th>Project</th>
+                        <th>Name</th>
+                        <th>Task</th>
+                        <th>Hrs.</th>
+                      </tr>
+                      ${tableRows}
+                    </table><br/>`;
+                }
+                resolve(result);
+              }
+            }
+          );
+        });
+      });
+  
+      Promise.all(emailPromises)
+        .then((results) => {
+          emailContent += `
+            <br/>
+            <p>Regards</p>
+            <p>Admin</p>`;
+  
+          const API_KEY = "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";
+  
+          sgMail.setApiKey(API_KEY);
+  
+          const data = {
+            to: ["sulfiya@unitdtechnologies.com"],
+            from: "notification@unitdtechnologies.com",
+            subject: `${startDate} - ${endDate} UTS Tasks Overview`,
+            templateId: "d-42189235e44545b4bd9fdba9a5b9b31e",
+            dynamicTemplateData: {
+              startDate: startDate,
+              endDate:endDate,
+              employees: employees.map((employee, index) => ({
+                name: employee.name,
+                total_hours: results[index].reduce((acc, row) => acc + (+row.hours || 0), 0),
+                timesheetData: results[index],
+              })),
+            },
+          };
+  
+          sgMail
+            .send(data)
+            .then(() => console.log("email sent ..."))
+            .catch((error) => console.log(error));
+        })
+        .catch((error) => {
+          console.error("Error sending emails:", error);
+        });
+    },
+    {
+      timezone: "Asia/Kolkata",
+    }
+  );
 
 module.exports = app;
