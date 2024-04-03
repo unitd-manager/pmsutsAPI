@@ -223,7 +223,6 @@ app.get('/getCountry', (req, res, next) => {
 app.post('/insertLeadCompany', (req, res, next) => {
 
           let data = {  lead_title: req.body.lead_title
-            ,employee_id:req.body.employee_id
             ,source_of_lead:req.body.source_of_lead
             ,creation_date:req.body.creation_date
             ,created_by:req.body.created_by
