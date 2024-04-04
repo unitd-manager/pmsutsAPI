@@ -50,6 +50,35 @@ app.get('/getEmployeeNameByColdCall', (req, res, next) => {
     }
   );
 });
+app.get('/getEmployeeNameByComments', (req, res, next) => {
+  db.query(
+    `SELECT
+    e.first_name,
+    c.comment_date,
+    COUNT(c.comments) AS comment_count
+   FROM comment c
+   LEFT JOIN Leads l ON c.record_id = l.lead_id
+   
+   GROUP BY e.first_name`,
+    (err, result) => {
+      if (err) {
+        console.log("Error fetching data:", err);
+        res.status(500).send({ msg: 'Error fetching employee data' });
+        return;
+      }
+
+      if (result.length > 0) {
+        res.status(200).send({
+          data: result,
+          msg: 'Success'
+        });
+      } else {
+        res.status(404).send({ msg: 'No employee data found' });
+      }
+    }
+  );
+});
+
 app.get('/getLead', (req, res, next) => {
   db.query(`SELECT a.* ,pe.first_name ,c.company_name FROM leads a LEFT JOIN (employee pe) ON (pe.employee_id = a.employee_id) LEFT JOIN (company c) ON (c.company_id = a.company_id)
   Where a.lead_id !=''`,

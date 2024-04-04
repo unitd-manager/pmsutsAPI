@@ -17,6 +17,32 @@ app.use(cors());
 app.use(fileUpload({
     createParentPath: true
 }));
+app.get('/getcoldCallCountByEmployee', (req, res) => {
+  const { month } = req.query; // Assuming you pass the month as a query parameter
+
+  // Query to count cold calls (non-null comments) by employee for the specified month
+  const query = 
+  `SELECT
+      e.employee_id,
+      e.first_name,
+      COUNT(c.comments) AS cold_call_count
+    FROM Leads l
+    LEFT JOIN employee e ON e.employee_id = l.employee_id
+    LEFT JOIN comment c ON c.record_id = l.lead_id
+    WHERE MONTH(l.lead_date) =''
+    GROUP BY e.employee_id, e.first_name`;
+
+  // Execute the query
+  db.query(query, [month], (err, result) => {
+    if (err) {
+      console.error('Error executing query:', err);
+      res.status(500).send({ error: 'Error fetching data' });
+      return;
+    }
+
+    res.status(200).send({ data: result });
+  });
+});
 app.get('/getEmployeeNameByColdCall', (req, res, next) => {
   db.query(
 
@@ -49,6 +75,37 @@ app.get('/getEmployeeNameByColdCall', (req, res, next) => {
     }
   );
 });
+app.get('/getEmployeeNameByComments', (req, res, next) => {
+  db.query(
+    `SELECT
+      e.employee_id,
+      l.lead_date,
+      e.first_name,
+      COUNT(c.comments) AS cold_call_count
+    FROM Leads l
+    LEFT JOIN employee e ON e.employee_id = l.employee_id
+    LEFT JOIN comment c ON c.record_id = l.lead_id
+    
+    GROUP BY e.employee_id, e.first_name`,
+    (err, result) => {
+      if (err) {
+        console.log("Error fetching data:", err);
+        res.status(500).send({ msg: 'Error fetching employee data' });
+        return;
+      }
+
+      if (result.length > 0) {
+        res.status(200).send({
+          data: result,
+          msg: 'Success'
+        });
+      } else {
+        res.status(404).send({ msg: 'No employee data found' });
+      }
+    }
+  );
+});
+
 app.get('/getLeadStats', (req, res, next) => {
   db.query(`SELECT a.* ,pe.first_name ,c.company_name 
   FROM leads
