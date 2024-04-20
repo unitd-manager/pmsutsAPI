@@ -117,6 +117,8 @@ app.post('/getLeadById', (req, res, next) => {
   pm.interaction_type,
   pm.followup_date,
   pm.notes,
+  pm.potential,
+  pm.revenue,
   e.employee_id,
   e.first_name,
   c.company_id,
@@ -167,6 +169,8 @@ app.post('/getLeadsById', (req, res, next) => {
     pm.cold_call,
     pm.followup_date,
     pm.notes,
+    pm.potential,
+    pm.revenue,
     e.employee_id,
     e.first_name,
     c.company_id,
@@ -216,6 +220,8 @@ app.post('/editLead', (req, res, next) => {
             ,interaction_type=${db.escape(req.body.interaction_type)}
             ,followup_date=${db.escape(req.body.followup_date)}
             ,notes=${db.escape(req.body.notes)}
+            ,potential=${db.escape(req.body.potential)}
+            ,revenue=${db.escape(req.body.revenue)}
             ,modification_date=${db.escape(req.body.modification_date)}
             ,modified_by=${db.escape(req.body.modified_by)}
             WHERE lead_id=${db.escape(req.body.lead_id)}`,
