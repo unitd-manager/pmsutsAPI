@@ -725,6 +725,25 @@ app.get("/getSourceTypeFromValueList", (req, res, next) => {
   );
 });
 
+app.get("/getPotentialTypeFromValueList", (req, res, next) => {
+  db.query(
+    `SELECT 
+      value,valuelist_id
+      FROM valuelist WHERE key_text="Potential"`,
+    (err, result) => {
+      if (err) {
+        console.log("error: ", err);
+        return;   
+      } else {
+        return res.status(200).send({
+          data: result,
+          msg: "Success",
+        });
+      }
+    }
+  );
+});
+
 
 app.post('/insertContact', (req, res, next) => {
 
