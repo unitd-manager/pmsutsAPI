@@ -75,7 +75,14 @@ app.get('/getEmployeeNameByColdCall', (req, res, next) => {
     }
   );
 });
-app.get('/getEmployeeNameByComments', (req, res, next) => {
+app.post('/getEmployeeNameByComments', (req, res, next) => {
+  const { month } = req.body; // Extract query parameters
+  const currentYear = new Date().getFullYear(); // Get current year
+
+  let dateCondition = ''; // Initialize the date condition
+
+  dateCondition = `WHERE DATE_FORMAT(l.lead_date, '%M') = ${db.escape(month)} AND YEAR(l.lead_date) = ${currentYear}`;
+
   db.query(
     `SELECT
       e.employee_id,
@@ -85,7 +92,7 @@ app.get('/getEmployeeNameByComments', (req, res, next) => {
     FROM Leads l
     LEFT JOIN employee e ON e.employee_id = l.employee_id
     LEFT JOIN comment c ON c.record_id = l.lead_id
-    
+  ${dateCondition}
     GROUP BY e.employee_id, e.first_name`,
     (err, result) => {
       if (err) {
@@ -105,6 +112,7 @@ app.get('/getEmployeeNameByComments', (req, res, next) => {
     }
   );
 });
+
 
 app.get('/getLeadStats', (req, res, next) => {
   db.query(`SELECT a.* ,pe.first_name ,c.company_name 
@@ -247,13 +255,14 @@ app.get("/ProjectTitleStats", (req, res, next) => {
     `SELECT 
     p.project_id, 
     p.title, 
+    p.general, 
     COUNT(CASE WHEN pt.status = 'InProgress' OR pt.status = 'Not Started' THEN pt.status END) AS task_title_count
 FROM 
     project p
 JOIN 
     project_task pt ON p.project_id = pt.project_id
 WHERE 
-    p.project_id IN (6, 43, 62, 52, 71)
+    p.project_id !='' AND p.status = 'WIP'
 GROUP BY 
     p.project_id`,
     (err, result) => {
@@ -348,6 +357,45 @@ GROUP BY
     }
   );
 });
+
+
+app.post("/ProjectEmployeeStatsById", (req, res, next) => {
+  db.query(
+    `SELECT 
+  p.project_id, 
+  p.title, 
+  e.employee_id,
+  e.employee_name,
+  e.first_name,
+  COUNT(CASE WHEN (pt.status = 'InProgress' OR pt.status = 'Not Started') AND pt.employee_id = e.employee_id THEN pt.status END) AS task_count
+FROM 
+  project p
+JOIN 
+  project_task pt ON p.project_id = pt.project_id
+JOIN 
+  employee e ON pt.employee_id = e.employee_id
+WHERE 
+  p.project_id =  ${db.escape(req.body.project_id)} 
+GROUP BY 
+  p.project_id, e.employee_id, e.employee_name,p.title;
+`,
+    (err, result) => {
+      if (err) {
+        console.log("error: ", err);
+        return res.status(400).send({
+          data: err,
+          msg: "failed",
+        });
+      } else {
+        return res.status(200).send({
+          data: result,
+          msg: "Success",
+        });
+      }
+    }
+  );
+});
+
 
 app.get("/ProjectTitleCards", (req, res, next) => {
   db.query(

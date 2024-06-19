@@ -198,7 +198,65 @@ app.post('/getLeadsById', (req, res, next) => {
   );
 });
 
+app.post('/getLeadId', (req, res, next) => {
+  const { month} = req.body; // Extract query parameters
 
+  let dateCondition = ''; // Initialize the date condition
+
+    dateCondition = `AND DATE_FORMAT(pm.lead_date, '%M')= ${db.escape(month)}`;
+  
+  db.query(`
+  SELECT 
+    pm.lead_id,
+    pm.lead_title,
+    pm.source_of_lead,
+    pm.lead_status,
+    pm.address,
+    pm.country,
+    pm.postal_code,
+    pm.email,
+    pm.phone_number,
+    pm.lead_date,
+    pm.service_of_interest,
+    pm.budget,
+    pm.priority,
+    pm.interaction_type,
+    pm.cold_call,
+    pm.followup_date,
+    pm.notes,
+    pm.potential,
+    pm.revenue,
+    e.employee_id,
+    e.first_name,
+    c.company_id,
+    c.company_name
+     ,(SELECT COUNT(co.comments) 
+  FROM comment co
+  WHERE co.record_id = pm.lead_id) AS cold_call_count
+  FROM leads pm
+  LEFT JOIN employee e ON pm.employee_id = e.employee_id
+  LEFT JOIN company c ON pm.company_id = c.company_id
+  WHERE pm.employee_id= ${db.escape(req.body.employee_id)}
+  ${dateCondition}
+  `,
+    (err, result) => {
+      if (err) {
+        console.log('error: ', err)
+        return res.status(400).send({
+          data: err,
+          msg: 'failed',
+        })
+      } else {
+        return res.status(200).send({
+          data: result,
+          msg: 'Success',
+            });
+
+        }
+ 
+    }
+  );
+});
  
 
 app.post('/editLead', (req, res, next) => {
