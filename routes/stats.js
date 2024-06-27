@@ -89,7 +89,7 @@ app.post('/getEmployeeNameByComments', (req, res, next) => {
       l.lead_date,
       e.first_name,
       COUNT(c.comments) AS cold_call_count
-    FROM Leads l
+    FROM leads l
     LEFT JOIN employee e ON e.employee_id = l.employee_id
     LEFT JOIN comment c ON c.record_id = l.lead_id
   ${dateCondition}
