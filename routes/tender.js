@@ -439,26 +439,18 @@ app.post('/edit-TabCostingSummaryForm', (req, res, next) => {
             ,finance_charges=${db.escape(req.body.finance_charges)}
             ,other_charges=${db.escape(req.body.other_charges)}
             ,total_cost =${db.escape(req.body.total_cost)}
+           , total_labour_charges=${db.escape(req.body.total_labour_charges)}
+           , total_material_price=${db.escape(req.body.total_material_price)}
+           ,opportunity_id=${db.escape(req.body.opportunity_id)}
+           ,profit_percentage=${db.escape(req.body.profit_percentage)}
+           ,profit=${db.escape(req.body.profit)}
             WHERE opportunity_costing_summary_id = ${db.escape(req.body.opportunity_costing_summary_id)}`,
-    (err, result) => {
-     
+    (err, result) =>{
       if (err) {
-        return res.status(400).send({
-          msg: 'No result found',
-          sql:`UPDATE opportunity_costing_summary 
-            SET no_of_worker_used=${db.escape(req.body.no_of_worker_used)}
-            ,no_of_days_worked=${db.escape(req.body.no_of_days_worked)}
-            ,labour_rates_per_day=${db.escape(req.body.labour_rates_per_day)}
-            ,po_price=${db.escape(req.body.po_price)}
-            ,transport_charges=${db.escape(req.body.transport_charges)}
-            ,salesman_commission=${db.escape(req.body.salesman_commission)}
-            ,office_overheads=${db.escape(req.body.office_overheads)}
-            ,finance_charges=${db.escape(req.body.finance_charges)}
-            ,other_charges=${db.escape(req.body.other_charges)}
-            ,total_cost =${db.escape(req.body.total_cost)}
-            WHERE opportunity_costing_summary_id = ${db.escape(req.body.opportunity_costing_summary_id)}`
-          
-        });
+          return res.status(400).send({
+              data: err,
+              msg:'error'
+            });
       } else {
             return res.status(200).send({
               data: result,
@@ -468,6 +460,7 @@ app.post('/edit-TabCostingSummaryForm', (req, res, next) => {
      }
   );
 });
+
 app.post('/getQuoteLineItemsById', (req, res, next) => {
   db.query(`SELECT
             qt.* 
@@ -650,6 +643,157 @@ app.get('/getTenderSummaryId', (req, res, next) => {
  
     }
   );
+});
+
+app.post('/insertTabcostingsummary', (req, res, next) => {
+
+  let data = {
+      opportunity_costing_summary_id:req.body.opportunity_costing_summary_id
+    , opportunity_id:req.body.opportunity_id
+    , no_of_worker_used: req.body.no_of_worker_used
+    , no_of_days_worked: req.body.no_of_days_worked
+    , labour_rates_per_day: req.body.labour_rates_per_day
+    , po_price: req.body.po_price
+    , transport_charges: req.body.transport_charges
+    , salesman_commission: req.body.salesman_commission
+    , office_overheads: req.body.office_overheads
+    , finance_charges: req.body.finance_charges
+    , other_charges: req.body.other_charges
+     , total_labour_charges:req.body.total_labour_charges
+    , total_cost	: req.body.total_cost
+    ,total_material_price:req.body.total_material_price
+     ,po_price:req.body.po_price
+      ,profit_percentage:req.body.profit_percentage
+       ,profit:req.body.profit
+    
+    
+ };
+  let sql = "INSERT INTO opportunity_costing_summary SET ?";
+  let query = db.query(sql, data,(err, result) => {
+    if (err) {
+     return res.status(400).send({
+            data: err,
+            msg:'Failed'
+          });
+    } else {
+          return res.status(200).send({
+            data: result,
+            msg:'New quote item has been created successfully'
+          });
+    }
+  });
+});
+app.post('/getTabCostingSummaryById', (req, res, next) => {
+  db.query(`SELECT 
+  c.no_of_days_worked,
+  c.opportunity_costing_summary_id,
+  c.no_of_worker_used,
+  c.labour_rates_per_day,
+  c.po_price,
+  c.po_price_with_gst,
+  c.profit_percentage,
+  c.invoiced_price,
+  c.profit,
+  c.total_material_price,
+  c.transport_charges,
+  c.total_labour_charges,
+  c.salesman_commission,
+  c.finance_charges,
+  c.office_overheads,
+  c.other_charges,
+  c.total_cost
+FROM opportunity_costing_summary c
+WHERE c.opportunity_id = ${db.escape(req.body.opportunity_id)} 
+ORDER BY c.opportunity_costing_summary_id DESC;`,
+    (err, result) =>{
+      if (err) {
+           return res.status(400).send({
+                data: err,
+                msg:'err'
+              });
+        } else {
+            if(err){
+              return res.status(200).send({
+                  data:[],
+                msg:'err'
+              });
+            }else{
+                  return res.status(200).send({
+                data: result,
+                msg:'Success'
+              });
+            }
+
+        }
+ 
+    }
+  );
+});
+
+app.post('/getTabOpportunityCostingSummary', (req, res, next) => {
+  db.query(`SELECT 
+  c.no_of_worker_used
+  ,c.no_of_days_worked
+  ,c.labour_rates_per_day
+  ,c.po_price
+  ,c.po_price_with_gst
+  ,c.profit_percentage
+  ,c.profit
+  ,c.total_material_price
+  ,c.transport_charges
+  ,c.total_labour_charges
+  ,c.salesman_commission
+  ,c.finance_charges
+  ,c.office_overheads
+  ,c.other_charges
+  ,c.total_cost of FROM opportunity_costing_summary c WHERE c.opportunity_id =${db.escape(req.body.opportunity_id)} 
+  ORDER BY c.opportunity_costing_summary_id DESC`,
+    (err, result) =>{
+      if (err) {
+           return res.status(400).send({
+                data: err,
+                msg:'err'
+              });
+        } else {
+            if(result.length === 0){
+              return res.status(400).send({
+                msg:'err'
+              });
+            }else{
+                  return res.status(200).send({
+                data: result,
+                msg:'Success'
+              });
+            }
+
+        }
+ 
+    }
+  );
+});
+
+
+app.get('/getTabCostingSummary', (req, res, next) => {
+db.query(`SELECT 
+c.total_material_price,c.transport_charges,c.total_labour_charges,c.salesman_commission,c.finance_charges,c.office_overheads,c.other_charges,c.total_cost
+FROM opportunity_costing_summary c 
+WHERE c.opportunity_id != '' 
+ORDER BY c.opportunity_costing_summary_id DESC`,
+  (err, result) => {
+   
+    if (err) {
+      return res.status(400).send({
+        msg: 'No result found'
+      });
+    } else {
+          return res.status(200).send({
+            data: result,
+            msg:'Success'
+          });
+      }
+
+  }
+);
 });
 
 app.get('/getTenderBestMonthSummary', (req, res, next) => {
