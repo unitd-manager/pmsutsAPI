@@ -265,6 +265,101 @@ app.post('/edit-Tenders', (req, res, next) => {
   );
 });
 
+app.post("/getCodeValue", (req, res, next) => {
+  var type = req.body.type;
+  let sql = '';
+  let key_text = '';
+  let withprefix = true;
+  if(type == 'opportunity'){
+      key_text = 'nextOpportunityCode';
+      sql = "SELECT * FROM setting WHERE key_text='opportunityCodePrefix' OR key_text='nextOpportunityCode'";
+  }else if(type == 'receipt'){
+      key_text = 'nextReceiptCode';
+      sql = "SELECT * FROM setting WHERE key_text='receiptCodePrefix' OR key_text='nextReceiptCode'";
+  }else if(type == 'lead'){
+      key_text = 'nextLeadsCode';
+      sql = "SELECT * FROM setting WHERE key_text='leadsPrefix' OR key_text='nextLeadsCode'";  
+  }else if(type == 'invoicestype'){
+      key_text = 'nextInvoiceCode';
+    sql = "SELECT * FROM setting WHERE key_text='invoiceCodePrefix' OR key_text='nextInvoiceCode'";  
+  }else if(type == 'subConworkOrder'){
+      key_text = 'nextSubconCode';
+    sql = "SELECT * FROM setting WHERE key_text='subconCodePrefix' OR key_text='nextSubconCode'";  
+  }else if(type == 'purchaseOrder'){
+    key_text = 'nextPurchaseOrderCode';
+  sql = "SELECT * FROM setting WHERE key_text='purchaseOrderCodePrefix' OR key_text='nextPurchaseOrderCode'";  
+}
+  else if(type == 'project'){
+      key_text = 'nextProjectCode';
+      sql = "SELECT * FROM setting WHERE key_text='projectCodePrefix' OR key_text='nextProjectCode'";  
+  }else if(type == 'opportunityproject'){
+      key_text = 'nextOpportunityProjectCode';
+      sql = "SELECT * FROM setting WHERE key_text='opportunityprojectCodePrefix' OR key_text='nextOpportunityProjectCode'";  
+  }else if(type == 'quote'){
+      key_text = 'nextQuotationCode';
+      sql = "SELECT * FROM setting WHERE key_text='quotationCodePrefix' OR key_text='nextQuotationCode'";  
+  }
+  else if(type == 'creditNote'){
+      key_text = 'nextCreditNoteCode';
+      sql = "SELECT * FROM setting WHERE key_text='creditNotePrefix' OR key_text='nextCreditNoteCode'";  
+  }else if(type == 'employee'){
+    //   withprefix = false;
+      key_text = 'nextEmployeeCode';
+    sql = "SELECT * FROM setting WHERE key_text='employeeCodePrefix' OR key_text='nextEmployeeCode'";  
+  }
+  else if(type == 'claim'){
+      // withprefix = false;
+      key_text = 'nextClaimCode';
+      sql = "SELECT * FROM setting WHERE key_text='claimCodePrefix' OR  key_text='nextClaimCode'";  
+  }
+  else if(type == 'QuoteCodeOpp'){
+      withprefix = false;
+      key_text = 'nextQuoteCodeOpp';
+      sql = "SELECT * FROM setting WHERE  key_text='nextQuoteCodeOpp'";  
+  }
+  else if(type == 'wocode'){
+      key_text = 'nextWOCode';
+      sql = "SELECT * FROM setting WHERE key_text='wOCodePrefix' OR key_text='nextWOCode'";  
+  }
+  let query = db.query(sql, (err, result) => {
+      let old = result
+    if (err) {
+      return res.status(400).send({
+        data: err,
+        msg: "failed",
+      });
+    } else {
+       
+        var finalText = '';
+        var newvalue = 0
+        if(withprefix == true){
+            var codeObject = result.filter(obj => obj.key_text === key_text);
+            
+             var prefixObject = result.filter(obj => obj.key_text != key_text);
+            finalText = prefixObject[0].value + codeObject[0].value;
+            newvalue = parseInt(codeObject[0].value) + 1
+        }else{
+            finalText = result[0].value
+            newvalue = parseInt(result[0].value) + 1
+        }
+        newvalue = newvalue.toString()
+         let query = db.query(`UPDATE setting SET value=${db.escape(newvalue)} WHERE key_text = ${db.escape(key_text)}`, (err, result) => {
+            if (err) {
+              return res.status(400).send({
+                data: err,
+                msg: "failed",
+              });
+            } else {
+              return res.status(200).send({
+                data: finalText,
+                result:old
+              });
+            }
+        });
+    }
+  });
+});
+
 app.post('/getCostingSummaryById', (req, res, next) => {
   db.query(`SELECT 
             c.* 
@@ -346,6 +441,33 @@ app.post('/deleteTender', (req, res, next) => {
           return res.status(200).send({
             data: result,
             msg:'Tender has been removed successfully'
+          });
+    }
+  });
+});
+app.post('/insertTenders', (req, res, next) => {
+
+  let data = {title	:req.body.title	
+   , company_id	: req.body.company_id
+   ,opportunity_code:req.body.opportunity_code
+   ,category: req.body.category
+   ,status:"Converted to Project"
+   ,creation_date: req.body.creation_date
+   ,created_by: req.body.created_by
+   ,staff_id: req.body.staff_id
+   };
+  let sql = "INSERT INTO opportunity SET ?";
+  let query = db.query(sql, data,(err, result) => {
+    if (err) {
+      console.log('error: ', err)
+      return res.status(400).send({
+        data: err,
+        msg: 'failed',
+      })
+    } else {
+      return res.status(200).send({
+        data: result,
+        msg: 'Success',
           });
     }
   });
