@@ -316,40 +316,41 @@ where i.project_id= ${db.escape(req.body.project_id)} `,
 });
 
 app.post('/insertTabcostingsummary', (req, res, next) => {
+  // Function to handle null or empty values
+  const handleNull = (value) => {
+    return (value === '' || value === null || value === undefined) ? null : value;
+  };
 
   let data = {
-      costing_summary_id:req.body.costing_summary_id
-    , project_id:req.body.project_id
-    , no_of_worker_used: req.body.no_of_worker_used
-    , no_of_days_worked: req.body.no_of_days_worked
-    , labour_rates_per_day: req.body.labour_rates_per_day
-    , po_price: req.body.po_price
-    , transport_charges: req.body.transport_charges
-    , salesman_commission: req.body.salesman_commission
-    , office_overheads: req.body.office_overheads
-    , finance_charges: req.body.finance_charges
-    , other_charges: req.body.other_charges
-     , total_labour_charges:req.body.total_labour_charges
-    , total_cost	: req.body.total_cost
-    ,total_material_price:req.body.total_material_price
-     ,po_price:req.body.po_price
-      ,profit_percentage:req.body.profit_percentage
-       ,profit:req.body.profit
-    
-    
- };
+    project_id: handleNull(req.body.project_id),
+    no_of_worker_used: handleNull(req.body.no_of_worker_used),
+    no_of_days_worked: handleNull(req.body.no_of_days_worked),
+    labour_rates_per_day: handleNull(req.body.labour_rates_per_day),
+    po_price: handleNull(req.body.po_price),
+    transport_charges: handleNull(req.body.transport_charges),
+    salesman_commission: handleNull(req.body.salesman_commission),
+    office_overheads: handleNull(req.body.office_overheads),
+    finance_charges: handleNull(req.body.finance_charges),
+    other_charges: handleNull(req.body.other_charges),
+    total_labour_charges: handleNull(req.body.total_labour_charges),
+    total_cost: handleNull(req.body.total_cost),
+    total_material_price: handleNull(req.body.total_material_price),
+    profit_percentage: handleNull(req.body.profit_percentage),
+    profit: handleNull(req.body.profit)
+  };
+
   let sql = "INSERT INTO costing_summary SET ?";
-  let query = db.query(sql, data,(err, result) => {
+  let query = db.query(sql, data, (err, result) => {
     if (err) {
-     return res.status(400).send({
-            data: err,
-            msg:'Failed'
-          });
+      return res.status(400).send({
+        data: err,
+        msg: 'Failed'
+      });
     } else {
-          return res.status(200).send({
-            data: result,
-            msg:'New quote item has been created successfully'
-          });
+      return res.status(200).send({
+        data: result,
+        msg: 'New quote item has been created successfully'
+      });
     }
   });
 });

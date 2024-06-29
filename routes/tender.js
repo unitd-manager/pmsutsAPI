@@ -768,43 +768,41 @@ app.get('/getTenderSummaryId', (req, res, next) => {
 });
 
 app.post('/insertTabcostingsummary', (req, res, next) => {
-
   let data = {
-      opportunity_costing_summary_id:req.body.opportunity_costing_summary_id
-    , opportunity_id:req.body.opportunity_id
-    , no_of_worker_used: req.body.no_of_worker_used
-    , no_of_days_worked: req.body.no_of_days_worked
-    , labour_rates_per_day: req.body.labour_rates_per_day
-    , po_price: req.body.po_price
-    , transport_charges: req.body.transport_charges
-    , salesman_commission: req.body.salesman_commission
-    , office_overheads: req.body.office_overheads
-    , finance_charges: req.body.finance_charges
-    , other_charges: req.body.other_charges
-     , total_labour_charges:req.body.total_labour_charges
-    , total_cost	: req.body.total_cost
-    ,total_material_price:req.body.total_material_price
-     ,po_price:req.body.po_price
-      ,profit_percentage:req.body.profit_percentage
-       ,profit:req.body.profit
-    
-    
- };
+    opportunity_costing_summary_id: req.body.opportunity_costing_summary_id || null,
+    opportunity_id: req.body.opportunity_id || null,
+    no_of_worker_used: req.body.no_of_worker_used || 0,
+    no_of_days_worked: req.body.no_of_days_worked || 0,
+    labour_rates_per_day: req.body.labour_rates_per_day || 0,
+    po_price: req.body.po_price || 0,
+    transport_charges: req.body.transport_charges || 0,
+    salesman_commission: req.body.salesman_commission || 0,
+    office_overheads: req.body.office_overheads || 0,
+    finance_charges: req.body.finance_charges || 0,
+    other_charges: req.body.other_charges || 0,
+    total_labour_charges: req.body.total_labour_charges || 0,
+    total_cost: req.body.total_cost || 0,
+    total_material_price: req.body.total_material_price || 0,
+    profit_percentage: req.body.profit_percentage || 0,
+    profit: req.body.profit || 0
+  };
+
   let sql = "INSERT INTO opportunity_costing_summary SET ?";
-  let query = db.query(sql, data,(err, result) => {
+  let query = db.query(sql, data, (err, result) => {
     if (err) {
-     return res.status(400).send({
-            data: err,
-            msg:'Failed'
-          });
+      return res.status(400).send({
+        data: err,
+        msg: 'Failed'
+      });
     } else {
-          return res.status(200).send({
-            data: result,
-            msg:'New quote item has been created successfully'
-          });
+      return res.status(200).send({
+        data: result,
+        msg: 'New quote item has been created successfully'
+      });
     }
   });
 });
+
 app.post('/getTabCostingSummaryById', (req, res, next) => {
   db.query(`SELECT 
   c.no_of_days_worked,
