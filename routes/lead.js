@@ -26,7 +26,7 @@ app.get('/getEmployeeNameByColdCall', (req, res, next) => {
     e.first_name,
     l.lead_date,
     COUNT(l.employee_id) AS cold_call_count
-   FROM Leads l
+   FROM leads l
    LEFT JOIN employee e ON e.employee_id = l.employee_id
   
    GROUP BY  e.first_name `,
@@ -57,7 +57,7 @@ app.get('/getEmployeeNameByComments', (req, res, next) => {
     c.comment_date,
     COUNT(c.comments) AS comment_count
    FROM comment c
-   LEFT JOIN Leads l ON c.record_id = l.lead_id
+   LEFT JOIN leads l ON c.record_id = l.lead_id
    
    GROUP BY e.first_name`,
     (err, result) => {
@@ -98,7 +98,24 @@ app.get('/getLead', (req, res, next) => {
   );
 });
 
-
+app.get("/getValueList", (req, res, next) => {
+  db.query(
+    `SELECT 
+      value,valuelist_id
+      FROM valuelist WHERE key_text="Software Category"`,
+    (err, result) => {
+      if (err) {
+        console.log("error: ", err);
+        return;
+      } else {
+        return res.status(200).send({
+          data: result,
+          msg: "Success",
+        });
+      }
+    }
+  );
+});
 app.post('/getLeadById', (req, res, next) => {
   db.query(`Select 
   pm.lead_id,
@@ -117,8 +134,10 @@ app.post('/getLeadById', (req, res, next) => {
   pm.interaction_type,
   pm.followup_date,
   pm.notes,
+  pm.cold_call,
   pm.potential,
   pm.revenue,
+  pm.software_category,
   e.employee_id,
   e.first_name,
   c.company_id,
@@ -171,6 +190,7 @@ app.post('/getLeadsById', (req, res, next) => {
     pm.notes,
     pm.potential,
     pm.revenue,
+    pm.software_category
     e.employee_id,
     e.first_name,
     c.company_id,
@@ -198,7 +218,8 @@ app.post('/getLeadsById', (req, res, next) => {
   );
 });
 
-app.post('/getLeadId', (req, res, next) => {
+
+ app.post('/getLeadId', (req, res, next) => {
   const { month} = req.body; // Extract query parameters
 
   let dateCondition = ''; // Initialize the date condition
@@ -226,6 +247,7 @@ app.post('/getLeadId', (req, res, next) => {
     pm.notes,
     pm.potential,
     pm.revenue,
+    pm.software_category,
     e.employee_id,
     e.first_name,
     c.company_id,
@@ -280,8 +302,10 @@ app.post('/editLead', (req, res, next) => {
             ,notes=${db.escape(req.body.notes)}
             ,potential=${db.escape(req.body.potential)}
             ,revenue=${db.escape(req.body.revenue)}
+            ,cold_call=${db.escape(req.body.cold_call)}
             ,modification_date=${db.escape(req.body.modification_date)}
             ,modified_by=${db.escape(req.body.modified_by)}
+            ,software_category=${db.escape(req.body.software_category)}
             WHERE lead_id=${db.escape(req.body.lead_id)}`,
             (err, result) => {
               if (err) {

@@ -119,6 +119,7 @@ app.get('/getValueListDropdown', (req, res, next) => {
       { id: '66', name: 'Source Type'},
       { id: '67', name: 'Potential'},
       { id: '68', name: 'Status'},
+      { id: '69', name: 'Software Category'},
 
 
     ],
