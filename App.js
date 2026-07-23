@@ -365,31 +365,20 @@ cron.schedule(
   }
 );
 
-// weekly timesheet emails
-
-const today = date.getDay();
-//const diff = date.getDate() - today + (today === 1 ? 0 : today === 0 ? -6 : 1);
-const diff = date.getDate() - today + (today === 0 ? -6 : 1);
-
-const startOfWeek = new Date(date); // Create a new date object for the start of the week
-startOfWeek.setDate(diff);
-
-const endOfWeek = new Date(date); // Create a new date object for the end of the week
-endOfWeek.setDate(diff + 5);
-
-const startDay = String(startOfWeek.getDate()).padStart(2, "0");
-const startMonth = String(startOfWeek.getMonth() + 1).padStart(2, "0");
-const startYear = startOfWeek.getFullYear();
-const startDate = `${startYear}-${startMonth}-${startDay}`;
-
-const endDay = String(endOfWeek.getDate()).padStart(2, "0");
-const endMonth = String(endOfWeek.getMonth() + 1).padStart(2, "0");
-const endYear = endOfWeek.getFullYear();
-const endDate = `${endYear}-${endMonth}-${endDay}`;
+// Weekly timesheet emails
 
 cron.schedule(
     "0 20 * * 6",
     () => {
+      const reportDate = new Date();
+      const dayOfWeek = reportDate.getDay();
+      const startOfWeek = new Date(reportDate);
+      startOfWeek.setDate(reportDate.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 5);
+      const startDate = startOfWeek.toISOString().slice(0, 10);
+      const endDate = endOfWeek.toISOString().slice(0, 10);
+
       let emailContent = `
         <style>
           table {
@@ -409,84 +398,36 @@ cron.schedule(
           }
         </style>
   
-        <p>Dear Team,</p>
-        <br/>
-        <p>Please find this week's timesheet details:</p>`;
+        <br/>`;
         
-        let totalHours;
-  
-      const emailPromises = employees.map((employee) => {
-        const employeeName = employee.name;
-        
-        
-        return new Promise((resolve, reject) => {
-          db.query(
-            `SELECT 
-              pt.timesheet_title,
-              t.task_title,
-              pt.date,
-              p.title,
-              pt.status,
-              e.first_name,
-              e.employee_id,
-              p.project_id,
-              pt.project_timesheet_id,
-              pt.description,
-              pt.hours,
-              pt.project_milestone_id,
-              pt.project_task_id,
-              (SELECT SUM(pt2.hours)
-               FROM project_timesheet pt2
-               WHERE t.employee_id = e.employee_id AND pt2.project_task_id = t.project_task_id
-              ) AS actual_hours
-            FROM project_timesheet pt
-            LEFT JOIN project p ON pt.project_id = p.project_id
-            LEFT JOIN project_task t ON t.project_task_id = pt.project_task_id
-            LEFT JOIN employee e ON pt.employee_id = e.employee_id
-            LEFT JOIN project_milestone m ON m.project_milestone_id = pt.project_milestone_id
-            WHERE pt.date BETWEEN '${startDate}' AND '${endDate}' AND e.first_name = '${employeeName}'`,
-            (err, result) => {
-              if (err) {
-                console.log(`Error fetching timesheet data for ${employeeName}:`, err);
-                reject(err);
-              } else {
-                //const totalHours = totalHours = result.reduce((acc, row) => acc + (parseFloat(row.hours) || 0), 0);
-                const employeeTotalHours = result.reduce((acc, row) => acc + (+row.hours || 0), 0);
-                totalHours = (totalHours || 0) + employeeTotalHours;
-                const tableRows = result
-                  .map((row,index) => {
-                    return `<tr>
-                      <td>${index+1}</td>
-                      <td>${row.title}</td>
-                      <td>${row.first_name}</td>
-                      <td>${row.task_title}</td>
-                      <td>${row.hours}</td>
-                    </tr>`;
-                  })
-                  .join("");
-  
-                if (tableRows) {
-                  emailContent += `
-                    <p>Employee Name: <b>${employeeName}</b>  Total Hrs(1 Week):${totalHours} </p>
-                    <table>
-                      <tr>
-                        <th>S.No</th>
-                        <th>Project</th>
-                        <th>Name</th>
-                        <th>Task</th>
-                        <th>Hrs.</th>
-                      </tr>
-                      ${tableRows}
-                    </table><br/>`;
-                }
-                resolve(result);
-              }
+      const emailPromise = new Promise((resolve, reject) => {
+        db.query(
+          `SELECT
+            e.first_name,
+            e.employee_id,
+            ROUND(COALESCE(SUM(pt.hours), 0), 2) AS hours,
+            ROUND(COALESCE(SUM(pt.hours), 0), 2) AS actual_hours,
+            'Weekly total' AS task_title,
+            'All projects' AS title,
+            'Total working hours for the week' AS description
+          FROM employee e
+          LEFT JOIN project_timesheet pt
+            ON pt.employee_id = e.employee_id
+            AND pt.date BETWEEN '${startDate}' AND '${endDate}'
+          GROUP BY e.employee_id, e.first_name
+          ORDER BY e.first_name`,
+          (err, result) => {
+            if (err) {
+              console.log("Error fetching weekly timesheet data:", err);
+              reject(err);
+              return;
             }
-          );
-        });
+            resolve(result);
+          }
+        );
       });
   
-      Promise.all(emailPromises)
+      emailPromise
         .then((results) => {
           emailContent += `
             <br/>
@@ -505,10 +446,12 @@ cron.schedule(
             dynamicTemplateData: {
               startDate: startDate,
               endDate:endDate,
-              employees: employees.map((employee, index) => ({
-                name: employee.name,
-                total_hours: results[index].reduce((acc, row) => acc + (+row.hours || 0), 0),
-                timesheetData: results[index],
+              reportGreeting: "Dear Team,",
+              reportHeading: "Please find this week's timesheet details:",
+              employees: results.map((row) => ({
+                name: row.first_name,
+                total_hours: Number(row.hours || 0),
+                timesheetData: [row],
               })),
             },
           };
@@ -526,5 +469,72 @@ cron.schedule(
       timezone: "Asia/Kolkata",
     }
   );
+
+cron.schedule(
+  "0 20 1 * *",
+  () => {
+    const reportDate = new Date();
+    const startOfMonth = new Date(reportDate.getFullYear(), reportDate.getMonth() - 1, 1);
+    const endOfMonth = new Date(reportDate.getFullYear(), reportDate.getMonth(), 0);
+    const startDate = startOfMonth.toISOString().slice(0, 10);
+    const endDate = endOfMonth.toISOString().slice(0, 10);
+
+    const emailPromise = new Promise((resolve, reject) => {
+      db.query(
+        `SELECT
+          e.first_name,
+          e.employee_id,
+          ROUND(COALESCE(SUM(pt.hours), 0), 2) AS hours,
+          ROUND(COALESCE(SUM(pt.hours), 0), 2) AS actual_hours,
+          'Monthly total' AS task_title,
+          'All projects' AS title,
+          'Total working hours for the month' AS description
+        FROM employee e
+        LEFT JOIN project_timesheet pt
+          ON pt.employee_id = e.employee_id
+          AND pt.date BETWEEN '${startDate}' AND '${endDate}'
+        GROUP BY e.employee_id, e.first_name
+        ORDER BY e.first_name`,
+        (err, result) => {
+          if (err) {
+            console.log("Error fetching monthly timesheet data:", err);
+            reject(err);
+            return;
+          }
+          resolve(result);
+        }
+      );
+    });
+
+    emailPromise
+      .then((results) => {
+        const API_KEY = "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";
+        sgMail.setApiKey(API_KEY);
+
+        return sgMail.send({
+          to: ["sulfiya@unitdtechnologies.com"],
+          from: "notification@unitdtechnologies.com",
+          subject: `${startDate} - ${endDate} UTS Monthly Tasks Overview`,
+          templateId: "d-42189235e44545b4bd9fdba9a5b9b31e",
+          dynamicTemplateData: {
+            startDate,
+            endDate,
+            reportGreeting: "Dear Team,",
+            reportHeading: "Please find this month's timesheet details:",
+            employees: results.map((row) => ({
+              name: row.first_name,
+              total_hours: Number(row.hours || 0),
+              timesheetData: [row],
+            })),
+          },
+        });
+      })
+      .then(() => console.log("monthly email sent ..."))
+      .catch((error) => console.error("Error sending monthly email:", error));
+  },
+  {
+    timezone: "Asia/Kolkata",
+  }
+);
 
 module.exports = app;
