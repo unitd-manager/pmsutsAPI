@@ -470,31 +470,52 @@ cron.schedule(
     }
   );
 
+// Monthly timesheet summary (Week 1 - Week 4 breakdown), sent on the 1st of every
+// month at exactly 8:00 PM IST, for the previous (just completed) month.
 cron.schedule(
   "0 20 1 * *",
   () => {
     const reportDate = new Date();
+
+    // Previous month's date range
     const startOfMonth = new Date(reportDate.getFullYear(), reportDate.getMonth() - 1, 1);
     const endOfMonth = new Date(reportDate.getFullYear(), reportDate.getMonth(), 0);
     const startDate = startOfMonth.toISOString().slice(0, 10);
     const endDate = endOfMonth.toISOString().slice(0, 10);
+    const daysInMonth = endOfMonth.getDate();
+    const monthLabel = startOfMonth.toLocaleString("en-US", {
+      month: "long",
+      year: "numeric",
+    });
 
+    // Fixed 4-week split of the month: 1-7, 8-14, 15-21, 22-end
+    const weekBoundaries = [
+      { week: 1, from: 1, to: 7 },
+      { week: 2, from: 8, to: 14 },
+      { week: 3, from: 15, to: 21 },
+      { week: 4, from: 22, to: daysInMonth },
+    ];
+
+    const getWeekIndex = (dayOfMonth) => {
+      const w = weekBoundaries.find((b) => dayOfMonth >= b.from && dayOfMonth <= b.to);
+      return w ? w.week : 4;
+    };
+
+    // Pull every timesheet row in the month for every current employee, so
+    // employees with zero hours in a week still show up with 0, not blank.
     const emailPromise = new Promise((resolve, reject) => {
       db.query(
         `SELECT
-          e.first_name,
           e.employee_id,
-          ROUND(COALESCE(SUM(pt.hours), 0), 2) AS hours,
-          ROUND(COALESCE(SUM(pt.hours), 0), 2) AS actual_hours,
-          'Monthly total' AS task_title,
-          'All projects' AS title,
-          'Total working hours for the month' AS description
+          e.first_name,
+          e.email,
+          pt.date,
+          pt.hours
         FROM employee e
         LEFT JOIN project_timesheet pt
           ON pt.employee_id = e.employee_id
           AND pt.date BETWEEN '${startDate}' AND '${endDate}'
-        GROUP BY e.employee_id, e.first_name
-        ORDER BY e.first_name`,
+        ORDER BY e.first_name, pt.date`,
         (err, result) => {
           if (err) {
             console.log("Error fetching monthly timesheet data:", err);
@@ -507,26 +528,123 @@ cron.schedule(
     });
 
     emailPromise
-      .then((results) => {
+      .then((rows) => {
+        // Build per-employee weekly totals
+        const employeeMap = new Map();
+
+        rows.forEach((row) => {
+          if (!employeeMap.has(row.employee_id)) {
+            employeeMap.set(row.employee_id, {
+              name: row.first_name,
+              email: row.email,
+              week1: 0,
+              week2: 0,
+              week3: 0,
+              week4: 0,
+              total: 0,
+            });
+          }
+
+          if (row.date && row.hours) {
+            const entry = employeeMap.get(row.employee_id);
+            const dayOfMonth = new Date(row.date).getDate();
+            const weekIndex = getWeekIndex(dayOfMonth);
+            const hours = Number(row.hours) || 0;
+
+            entry[`week${weekIndex}`] += hours;
+            entry.total += hours;
+          }
+        });
+
+        const employees = Array.from(employeeMap.values()).map((e) => ({
+          name: e.name,
+          email: e.email,
+          week1: Math.round(e.week1 * 100) / 100,
+          week2: Math.round(e.week2 * 100) / 100,
+          week3: Math.round(e.week3 * 100) / 100,
+          week4: Math.round(e.week4 * 100) / 100,
+          total: Math.round(e.total * 100) / 100,
+        }));
+
+        // Column / grand totals
+        const columnTotals = employees.reduce(
+          (acc, e) => {
+            acc.week1 += e.week1;
+            acc.week2 += e.week2;
+            acc.week3 += e.week3;
+            acc.week4 += e.week4;
+            acc.total += e.total;
+            return acc;
+          },
+          { week1: 0, week2: 0, week3: 0, week4: 0, total: 0 }
+        );
+
+        const employeeRows = employees
+          .map(
+            (e) => `
+              <tr>
+                <td>${e.name}</td>
+                <td style="text-align:center;">${e.week1}</td>
+                <td style="text-align:center;">${e.week2}</td>
+                <td style="text-align:center;">${e.week3}</td>
+                <td style="text-align:center;">${e.week4}</td>
+                <td style="text-align:center;"><b>${e.total}</b></td>
+              </tr>`
+          )
+          .join("");
+
+        const emailContent = `
+          <style>
+            table { border-collapse: collapse; width: 100%; border: 1px solid #ccc; }
+            th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+            th { background: #0b2e6f; color: #fff; }
+            tfoot td { background: #eef2fb; font-weight: bold; }
+          </style>
+          <p>Dear Team,</p>
+          <p>Please find below the working hours summary for each staff for ${monthLabel} (Week 1 to Week 4).</p>
+          <p>This includes the total hours worked by each team member.</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Staff Name</th>
+                <th style="text-align:center;">Week 1 (Hrs)</th>
+                <th style="text-align:center;">Week 2 (Hrs)</th>
+                <th style="text-align:center;">Week 3 (Hrs)</th>
+                <th style="text-align:center;">Week 4 (Hrs)</th>
+                <th style="text-align:center;">Total (Hrs)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${employeeRows}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td>Total (Hrs)</td>
+                <td style="text-align:center;">${Math.round(columnTotals.week1 * 100) / 100}</td>
+                <td style="text-align:center;">${Math.round(columnTotals.week2 * 100) / 100}</td>
+                <td style="text-align:center;">${Math.round(columnTotals.week3 * 100) / 100}</td>
+                <td style="text-align:center;">${Math.round(columnTotals.week4 * 100) / 100}</td>
+                <td style="text-align:center;">${Math.round(columnTotals.total * 100) / 100}</td>
+              </tr>
+            </tfoot>
+          </table>
+          <br/>
+          <p><b>Note:</b> The hours are calculated based on logged working time. Please reach out to your manager for any discrepancies.</p>
+          <br/>
+          <p>Regards,</p>
+          <p><b>Admin Team</b></p>`;
+
         const API_KEY = "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";
         sgMail.setApiKey(API_KEY);
 
+        const ccEmails = employees.map((e) => e.email).filter(Boolean);
+
         return sgMail.send({
           to: ["sulfiya@unitdtechnologies.com"],
+          cc: ccEmails,
           from: "notification@unitdtechnologies.com",
-          subject: `${startDate} - ${endDate} UTS Monthly Tasks Overview`,
-          templateId: "d-42189235e44545b4bd9fdba9a5b9b31e",
-          dynamicTemplateData: {
-            startDate,
-            endDate,
-            reportGreeting: "Dear Team,",
-            reportHeading: "Please find this month's timesheet details:",
-            employees: results.map((row) => ({
-              name: row.first_name,
-              total_hours: Number(row.hours || 0),
-              timesheetData: [row],
-            })),
-          },
+          subject: `${monthLabel} - UTS Monthly Working Hours Summary`,
+          html: emailContent,
         });
       })
       .then(() => console.log("monthly email sent ..."))
