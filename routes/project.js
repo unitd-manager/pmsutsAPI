@@ -8,104 +8,62 @@ var md5 = require('md5');
 const fileUpload = require('express-fileupload');
 const _ = require('lodash');
 const mime = require('mime-types')
+
+const crypto = require('crypto');
+const qs = require('qs');
+const axios = require('axios');
+
 var bodyParser = require('body-parser');
 var cors = require('cors');
 var app = express();
+const si = require('systeminformation');
 app.use(cors());
 
 app.use(fileUpload({
     createParentPath: true
 }));
 
-// app.get('/getProject', (req, res, next) => {
-//   db.query(`SELECT p.title
-//   ,p.category
-//   ,p.status
-//   ,p.contact_id
-//   ,p.start_date
-//   ,p.estimated_finish_date
-//   ,p.description
-//   ,p.project_manager_id
-//   ,p.project_id
-//   ,p.project_code
-//   ,CONCAT_WS(' ', cont.first_name, cont.last_name) AS contact_name 
-//   ,c.company_name 
-//   ,c.company_size 
-//   ,c.source ,c.industry 
-//   ,o.opportunity_code 
-//   ,( SELECT GROUP_CONCAT( CONCAT_WS(' ', stf.first_name, stf.last_name) 
-//   ORDER BY CONCAT_WS(' ', stf.first_name, stf.last_name) SEPARATOR ', ' ) 
-//   FROM staff stf ,project_staff ts 
-//   WHERE ts.project_id = p.project_id AND stf.staff_id = ts.staff_id ) 
-//   AS staff_name ,ser.title as service_title ,CONCAT_WS(' ', s.first_name, s.last_name) 
-//   AS project_manager_name ,(p.project_value - (IF(ISNULL(( SELECT SUM(invoice_amount) 
-//   FROM invoice i LEFT JOIN (orders o) ON (i.order_id = o.order_id)
-//  WHERE o.project_id = p.project_id AND LOWER(i.status) != 'cancelled' ) ),0, ( SELECT SUM(invoice_amount) 
-//   FROM invoice i LEFT JOIN (orders o) ON (i.order_id = o.order_id) 
-//   WHERE o.project_id = p.project_id AND LOWER(i.status) != 'cancelled' ) ))) AS still_to_bill FROM project p LEFT JOIN (contact cont) ON (p.contact_id = cont.contact_id)LEFT JOIN (company c)ON (p.company_id = c.company_id) 
-//   LEFT JOIN (service ser) ON (p.service_id = ser.service_id) LEFT JOIN (staff s) ON (p.project_manager_id = s.staff_id) LEFT JOIN (opportunity o) ON (p.opportunity_id = o.opportunity_id) WHERE ( LOWER(p.status) = 'wip' OR LOWER(p.status) = 'billable' OR LOWER(p.status) = 'billed' ) AND ( LOWER(p.status) = 'wip' OR LOWER(p.status) ='billable' OR LOWER(p.status) = 'billed') ORDER BY p.project_code DESC`,
-//     (err, result) => {
-       
-//       if (result.length == 0) {
-//         return res.status(400).send({
-//           msg: 'No result found'
-//         });
-//       } else {
-//             return res.status(200).send({
-//               data: result,
-//               msg:'Success'
-//             });
 
-//         }
- 
-//     }
-//   );
-// });
+// ✅ Extra DB connection for remote server (66.29.154.85)
+const mysql = require('mysql');
 
-// app.post('/getProjectsByID', (req, res, next) => {
-//   db.query(`SELECT p.title
-//   ,p.category
-//   ,p.status
-//   ,p.contact_id
-//   ,p.start_date
-//   ,p.estimated_finish_date
-//   ,p.description
-//   ,p.project_manager_id
-//   ,p.project_id
-//   ,p.company_id 
-//   ,CONCAT_WS(' ', cont.first_name, cont.last_name) AS contact_name 
-//   ,c.company_name 
-//   ,c.company_size 
-//   ,c.source ,c.industry 
-//   ,o.opportunity_code 
-//   ,p.project_code
-//   ,( SELECT GROUP_CONCAT( CONCAT_WS(' ', stf.first_name, stf.last_name) 
-//   ORDER BY CONCAT_WS(' ', stf.first_name, stf.last_name) SEPARATOR ', ' ) 
-//   FROM staff stf ,project_staff ts 
-//   WHERE ts.project_id = p.project_id AND stf.staff_id = ts.staff_id ) 
-//   AS staff_name ,ser.title as service_title ,CONCAT_WS(' ', s.first_name, s.last_name) 
-//   AS project_manager_name ,(p.project_value - (IF(ISNULL(( SELECT SUM(invoice_amount) 
-//   FROM invoice i LEFT JOIN (orders o) ON (i.order_id = o.order_id)
-//  WHERE o.project_id = p.project_id AND LOWER(i.status) != 'cancelled' ) ),0, ( SELECT SUM(invoice_amount) 
-//   FROM invoice i LEFT JOIN (orders o) ON (i.order_id = o.order_id) 
-//   WHERE o.project_id = p.project_id AND LOWER(i.status) != 'cancelled' ) ))) AS still_to_bill FROM project p LEFT JOIN (contact cont) ON (p.contact_id = cont.contact_id)LEFT JOIN (company c)ON (p.company_id = c.company_id) 
-//   LEFT JOIN (service ser) ON (p.service_id = ser.service_id) LEFT JOIN (staff s) ON (p.project_manager_id = s.staff_id) LEFT JOIN (opportunity o) ON (p.opportunity_id = o.opportunity_id) WHERE ( LOWER(p.status) = 'wip' OR LOWER(p.status) = 'billable' OR LOWER(p.status) = 'billed' ) AND ( LOWER(p.status) = 'wip' OR LOWER(p.status) ='billable' OR LOWER(p.status) = 'billed') AND p.project_id=${db.escape(req.body.project_id)}  ORDER BY p.project_code DESC`,
-//      (err, result) => {
-//     if (err) {
-//       console.log('error: ', err)
-//       return res.status(400).send({
-//         data: err,
-//         msg: 'failed',
-//       })
-//     } else {
-//       return res.status(200).send({
-//         data: result,
-//         msg: 'Success',
-// })
-// }
-//   }
-// );
-// })
+const dbRemote = mysql.createConnection({
+  host: '69.57.161.117',
+  port: 3306,
+  user: 'fhtraders_user',
+  password: '!@syed#$',
+  database: 'fhtraders'
+});
+
+dbRemote.connect((err) => {
+  if (err) {
+    console.error('Remote DB connection failed:', err);
+  } else {
+    console.log('Connected to remote database');
+  }
+});
+
+
+app.get('/sys-status', async (req, res) => {
+  try {
+    const cpu = await si.currentLoad();
+    const mem = await si.mem();
+    const disk = await si.fsSize();
+
+    res.json({
+      cpuUsage: cpu.currentLoad.toFixed(2), // %
+      ramUsage: ((mem.active / mem.total) * 100).toFixed(2), // %
+      ramUsed: (mem.active / (1024 ** 3)).toFixed(2),
+      ramTotal: (mem.total / (1024 ** 3)).toFixed(2),
+      diskUsage: disk[0].use.toFixed(2), // %
+      diskUsed: (disk[0].used / (1024 ** 3)).toFixed(2),
+      diskTotal: (disk[0].size / (1024 ** 3)).toFixed(2),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 app.post('/getProjectsByIDs', (req, res, next) => {
   db.query(`SELECT
@@ -170,6 +128,325 @@ WHERE p.project_id = ${db.escape(req.body.project_id)}  ORDER BY p.project_code 
 );
 })
 
+
+app.post('/getProjectsGeneralByIDs', (req, res, next) => {
+  db.query(`SELECT general,title FROM project WHERE project_id!='' AND general=1`,
+     (err, result) => {
+    if (err) {
+      console.log('error: ', err)
+      return res.status(400).send({
+        data: err,
+        msg: 'failed',
+      })
+    } else {
+      return res.status(200).send({
+        data: result,
+        msg: 'Success',
+})
+}
+  }
+);
+}) 
+
+app.get('/paymentreminders', (req, res, next) => {
+  db.query(`SELECT * FROM payment_reminder WHERE payment_reminder_id!=''`,
+     (err, result) => {
+    if (err) {
+      console.log('error: ', err)
+      return res.status(400).send({
+        data: err,
+        msg: 'failed',
+      })
+    } else {
+      return res.status(200).send({
+        data: result,
+        msg: 'Success',
+})
+}
+  }
+);
+}) 
+
+
+app.post('/paymentremindersbyid', (req, res) => {
+  const id = db.escape(req.body.payment_reminder_id);
+  db.query(`SELECT * FROM payment_reminder WHERE payment_reminder_id = ${id}`, (err, result) => {
+    if (err) {
+      console.error('Error: ', err);
+      return res.status(400).send({ data: err, msg: 'Failed' });
+    }
+    return res.status(200).send({ data: result, msg: 'Success' });
+  });
+});
+
+
+app.post('/addpaymentreminders', (req, res) => {
+  const {
+    company_id,
+    domain_link,
+    product,
+    first_alert,
+    second_alert,
+    disconnect_site,
+    creation_date,
+    modification_date,
+    created_by,
+    modified_by,
+    db_name,
+    server_name,
+    alert_type,
+    cron_run
+  } = req.body;
+
+  const data = {
+    company_id,
+    domain_link,
+    product,
+    first_alert,
+    second_alert,
+    disconnect_site,
+    creation_date,
+    modification_date,
+    created_by,
+    modified_by,
+    db_name,
+    server_name,
+    alert_type,
+    cron_run
+  };
+
+  db.query('INSERT INTO payment_reminder SET ?', data, (err, result) => {
+    if (err) {
+      console.error('Error: ', err);
+      return res.status(400).send({ data: err, msg: 'Failed' });
+    }
+    return res.status(200).send({ data: result, msg: 'Added successfully' });
+  });
+});
+
+
+app.put('/updatepaymentreminders/:id', (req, res) => {
+  const id = db.escape(req.params.id);
+
+  const {
+    company_id,
+    domain_link,
+    product,
+    first_alert,
+    second_alert,
+    disconnect_site,
+    modification_date,
+    modified_by,
+    db_name,
+    server_name,
+    alert_type,
+    cron_run
+  } = req.body;
+
+  const data = {
+    company_id,
+    domain_link,
+    product,
+    first_alert,
+    second_alert,
+    disconnect_site,
+    modification_date,
+    modified_by,
+    db_name,
+    server_name,
+    alert_type,
+    cron_run
+  };
+
+  // 1️⃣ Update local DB
+  db.query(`UPDATE payment_reminder SET ? WHERE payment_reminder_id = ${id}`, data, (err, result) => {
+    if (err) {
+      console.error('Local DB Error: ', err);
+      return res.status(400).send({ data: err, msg: 'Failed local update' });
+    }
+
+    // 2️⃣ Also update remote vfcpos.setting if first_alert changed
+    if (first_alert !== undefined) {
+      const sql = `UPDATE setting SET value = ? WHERE key_text = 'paymentReminder'`;
+      dbRemote.query(sql, [first_alert], (remoteErr, remoteResult) => {
+        if (remoteErr) {
+          console.error('Remote DB Error: ', remoteErr);
+          // still return success for local, but notify remote issue
+          return res.status(200).send({
+            data: result,
+            msg: 'Local updated, but failed remote sync'
+          });
+        }
+        return res.status(200).send({
+          data: { local: result, remote: remoteResult },
+          msg: 'Updated locally and synced to remote'
+        });
+      });
+    } else {
+      return res.status(200).send({ data: result, msg: 'Updated locally only' });
+    }
+    
+    
+     if (disconnect_site !== undefined) {
+      const sql = `UPDATE staff SET published = ? WHERE email = 'fhtraders@cubosale.in'`;
+      dbRemote.query(sql, [disconnect_site], (remoteErr, remoteResult) => {
+        if (remoteErr) {
+          console.error('Remote DB Error: ', remoteErr);
+          // still return success for local, but notify remote issue
+          return res.status(200).send({
+            data: result,
+            msg: 'Local updated, but failed remote sync'
+          });
+        }
+        return res.status(200).send({
+          data: { local: result, remote: remoteResult },
+          msg: 'Updated locally and synced to remote'
+        });
+      });
+    } else {
+      return res.status(200).send({ data: result, msg: 'Updated locally only' });
+    }
+    
+    
+     // 2️⃣ Also update remote vfcpos.setting if secondt_alert changed
+    if (second_alert !== undefined) {
+      const sql = `UPDATE setting SET value = ? WHERE key_text = 'paymentReminder2'`;
+      dbRemote.query(sql, [second_alert], (remoteErr, remoteResult) => {
+        if (remoteErr) {
+          console.error('Remote DB Error: ', remoteErr);
+          // still return success for local, but notify remote issue
+          return res.status(200).send({
+            data: result,
+            msg: 'Local updated, but failed remote sync'
+          });
+        }
+        return res.status(200).send({
+          data: { local: result, remote: remoteResult },
+          msg: 'Updated locally and synced to remote'
+        });
+      });
+    } else {
+      return res.status(200).send({ data: result, msg: 'Updated locally only' });
+    }
+  });
+});
+
+
+app.delete('/deletepaymentreminders/:id', (req, res) => {
+  const id = db.escape(req.params.id);
+  db.query(`DELETE FROM payment_reminder WHERE payment_reminder_id = ${id}`, (err, result) => {
+    if (err) {
+      console.error('Error: ', err);
+      return res.status(400).send({ data: err, msg: 'Failed' });
+    }
+    return res.status(200).send({ data: result, msg: 'Deleted successfully' });
+  });
+});
+
+
+
+app.get('/getProjectGeneralCardt', (req, res, next) => {
+  db.query(`SELECT
+  CASE
+    WHEN p.general = 1 THEN 'General'
+    ELSE 'Non-General'
+  END AS project_type,
+  COUNT(*) AS project_count
+FROM project p
+WHERE p.project_id != ''
+  AND p.status = 'WIP'
+GROUP BY
+  CASE
+    WHEN p.general = 1 THEN 'General'
+    ELSE 'Non-General'
+  END`,
+    (err, result) => {
+       
+      if (result.length == 0) {
+        return res.status(400).send({
+          msg: 'No result found'
+        });
+      } else {
+            return res.status(200).send({
+              data: result,
+              msg:'Success'
+            });
+
+        }
+ 
+    }
+  );
+});   
+
+app.get('/getProjectDonut', (req, res, next) => {
+  db.query(`SELECT
+  p.title,
+  p.category,
+  p.status,
+  p.project_code,
+  p.start_date,
+  p.estimated_finish_date,
+  p.description,
+  p.project_id,
+  p.difficulty,
+  p.per_completed,
+  p.general,
+      COUNT(*) AS task_title_count
+FROM project p
+WHERE p.project_id !='' 
+  AND (p.general = 0 OR p.general IS NULL)
+  AND p.status = 'WIP'
+GROUP BY p.title DESC`,
+    (err, result) => {
+       
+      if (result.length == 0) {
+        return res.status(400).send({
+          msg: 'No result found'
+        });
+      } else {
+            return res.status(200).send({
+              data: result,
+              msg:'Success'
+            });
+
+        }
+ 
+    }
+  );
+}); 
+
+app.post("/getProjectEmployees", (req, res, next) => {
+  db.query(
+    `SELECT 
+  pt.employee_id,
+  e.first_name,
+  e.last_name,
+  p.title,
+  COUNT(p.project_id) AS task_count 
+FROM project_task pt
+LEFT JOIN employee e ON e.employee_id = pt.employee_id
+LEFT JOIN project p ON p.project_id = pt.project_id
+WHERE p.project_id = ${db.escape(req.body.project_id)}
+GROUP BY pt.employee_id`,
+    (err, result) => {
+      if (err) {
+        console.log("error: ", err);
+        return res.status(400).send({
+          data: err,
+          msg: "failed",
+        });
+      } else {
+        return res.status(200).send({
+          data: result,
+          msg: "Success",
+        });
+      }
+    }
+  );
+});
+
+
+
 app.get('/getProjects', (req, res, next) => {
   db.query(`SELECT p.title
   ,p.category
@@ -187,6 +464,7 @@ app.get('/getProjects', (req, res, next) => {
   ,c.company_size 
   ,c.source ,c.industry 
   ,o.opportunity_code 
+  ,p.general
   ,( SELECT GROUP_CONCAT( CONCAT_WS(' ', stf.first_name, stf.last_name) 
   ORDER BY CONCAT_WS(' ', stf.first_name, stf.last_name) SEPARATOR ', ' ) 
   FROM staff stf ,project_staff ts 
@@ -197,7 +475,7 @@ app.get('/getProjects', (req, res, next) => {
  WHERE o.project_id = p.project_id AND LOWER(i.status) != 'cancelled' ) ),0, ( SELECT SUM(invoice_amount) 
   FROM invoice i LEFT JOIN (orders o) ON (i.order_id = o.order_id) 
   WHERE o.project_id = p.project_id AND LOWER(i.status) != 'cancelled' ) ))) AS still_to_bill FROM project p LEFT JOIN (contact cont) ON (p.contact_id = cont.contact_id)LEFT JOIN (company c)ON (p.company_id = c.company_id) 
-  LEFT JOIN (service ser) ON (p.service_id = ser.service_id) LEFT JOIN (staff s) ON (p.project_manager_id = s.staff_id) LEFT JOIN (opportunity o) ON (p.opportunity_id = o.opportunity_id) WHERE p.project_id!='' ORDER BY p.project_code DESC`,
+  LEFT JOIN (service ser) ON (p.service_id = ser.service_id) LEFT JOIN (staff s) ON (p.project_manager_id = s.staff_id) LEFT JOIN (opportunity o) ON (p.opportunity_id = o.opportunity_id) WHERE p.project_id!=''  ORDER BY p.project_code DESC`,
     (err, result) => {
        
       if (result.length == 0) {
@@ -216,6 +494,118 @@ app.get('/getProjects', (req, res, next) => {
   );
 });
 
+app.get('/getProjectss', (req, res, next) => {
+  db.query(`SELECT
+  p.title,
+  p.category,
+  p.status,
+  p.project_code,
+  p.start_date,
+  p.estimated_finish_date,
+  p.actual_finish_date,
+  p.description,
+  p.project_id,
+  p.difficulty,
+  p.per_completed,
+  p.general,
+  pt.milestone_title,
+  pt.from_date AS milestone_start_date,
+  pt.to_date 
+FROM project p
+LEFT JOIN project_milestone pt ON p.project_id = pt.project_id
+WHERE p.project_id !='' 
+  AND (p.general = 0 OR p.general IS NULL)
+  AND p.status = 'WIP'
+GROUP BY p.title DESC`,
+    (err, result) => {
+       
+      if (result.length == 0) {
+        return res.status(400).send({
+          msg: 'No result found'
+        });
+      } else {
+            return res.status(200).send({
+              data: result,
+              msg:'Success'
+            });
+
+        }
+ 
+    }
+  );
+}); 
+
+app.post('/getProjectMilestone', (req, res, next) => {
+  db.query(`SELECT
+  p.title,
+  p.category,
+  p.status,
+  p.project_code,
+  p.start_date,
+  p.estimated_finish_date,
+  p.actual_finish_date,
+  p.description,
+  p.project_id,
+  p.difficulty,
+  p.per_completed,
+  p.general,
+  pt.milestone_title,
+  pt.from_date AS milestone_start_date,
+  pt.to_date  AS milestone_end_date
+FROM project p
+LEFT JOIN project_milestone pt ON p.project_id = pt.project_id
+WHERE pt.project_id = ${db.escape(
+      req.body.project_id)}`,
+      
+    (err, result) => {
+       
+      if (result.length == 0) {
+        return res.status(400).send({
+          msg: 'No result found'
+        });
+      } else {
+            return res.status(200).send({
+              data: result,
+              msg:'Success'
+            });
+
+        }
+ 
+    }
+  );
+}); 
+
+
+app.post('/getMilestones', (req, res, next) => {
+  db.query(`SELECT 
+  pt.project_milestone_id,
+  pt.milestone_title,
+  pt.from_date AS milestone_start_date,
+  pt.to_date ,
+  pt.status,
+  p.project_id,
+  p.title AS project_title
+FROM project_milestone pt
+INNER JOIN project p ON p.project_id = pt.project_id
+WHERE pt.project_id = ${db.escape(req.body.project_id)} 
+ORDER BY pt.from_date ASC`,
+    (err, result) => {
+       
+      if (result.length == 0) {
+        return res.status(400).send({
+          msg: 'No result found'
+        });
+      } else {
+            return res.status(200).send({
+              data: result,
+              msg:'Success'
+            });
+
+        }
+ 
+    }
+  );
+}); 
 
 app.post('/getcompanyById', (req, res, next) => {
   db.query(` SELECT *,
@@ -313,93 +703,6 @@ where i.project_id= ${db.escape(req.body.project_id)} `,
 
   }
  );
-});
-
-app.post('/insertTabcostingsummary', (req, res, next) => {
-  // Function to handle null or empty values
-  const handleNull = (value) => {
-    return (value === '' || value === null || value === undefined) ? null : value;
-  };
-
-  let data = {
-    project_id: handleNull(req.body.project_id),
-    no_of_worker_used: handleNull(req.body.no_of_worker_used),
-    no_of_days_worked: handleNull(req.body.no_of_days_worked),
-    labour_rates_per_day: handleNull(req.body.labour_rates_per_day),
-    po_price: handleNull(req.body.po_price),
-    transport_charges: handleNull(req.body.transport_charges),
-    salesman_commission: handleNull(req.body.salesman_commission),
-    office_overheads: handleNull(req.body.office_overheads),
-    finance_charges: handleNull(req.body.finance_charges),
-    other_charges: handleNull(req.body.other_charges),
-    total_labour_charges: handleNull(req.body.total_labour_charges),
-    total_cost: handleNull(req.body.total_cost),
-    total_material_price: handleNull(req.body.total_material_price),
-    profit_percentage: handleNull(req.body.profit_percentage),
-    profit: handleNull(req.body.profit)
-  };
-
-  let sql = "INSERT INTO costing_summary SET ?";
-  let query = db.query(sql, data, (err, result) => {
-    if (err) {
-      return res.status(400).send({
-        data: err,
-        msg: 'Failed'
-      });
-    } else {
-      return res.status(200).send({
-        data: result,
-        msg: 'New quote item has been created successfully'
-      });
-    }
-  });
-});
-
-app.post('/getTabCostingSummaryById', (req, res, next) => {
-  db.query(`SELECT 
-  c.no_of_days_worked,
-  c.opportunity_costing_summary_id,
-  c.no_of_worker_used,
-  c.labour_rates_per_day,
-  c.po_price,
-  c.po_price_with_gst,
-  c.profit_percentage,
-  c.invoiced_price,
-  c.profit,
-  c.total_material_price,
-  c.transport_charges,
-  c.total_labour_charges,
-  c.salesman_commission,
-  c.finance_charges,
-  c.office_overheads,
-  c.other_charges,
-  c.total_cost
-FROM costing_summary c
-WHERE c.project_id = ${db.escape(req.body.project_id)} 
-ORDER BY c.costing_summary_id DESC;`,
-    (err, result) =>{
-      if (err) {
-           return res.status(400).send({
-                data: err,
-                msg:'err'
-              });
-        } else {
-            if(err){
-              return res.status(200).send({
-                  data:[],
-                msg:'err'
-              });
-            }else{
-                  return res.status(200).send({
-                data: result,
-                msg:'Success'
-              });
-            }
-
-        }
- 
-    }
-  );
 });
 
 app.post('/edit-Project', (req, res, next) => {
@@ -789,6 +1092,22 @@ AND project_id = p.project_id) as office_overheads
     }
   );
 });
+
+
+// app.get("/aapanel-status", async (req, res) => {
+//   try {
+//     const response = await axios.post(
+//       "http://43.228.126.245:7800/system?action=GetSystemTotal",
+//       qs.stringify({ request_token: "ucUWy0eJCRhkuqKwYhhnkjNPfcBrbqG2" }), // form data
+//       { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+//     );
+//     res.json(response.data);
+//   } catch (err) {
+//     console.error("Error fetching aaPanel status:", err.message);
+//     res.status(500).json({ error: "Failed to fetch aaPanel status" });
+//   }
+// });
+
 
 app.get('/secret-route', userMiddleware.isLoggedIn, (req, res, next) => {
   console.log(req.userData);

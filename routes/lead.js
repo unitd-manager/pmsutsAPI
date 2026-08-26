@@ -141,7 +141,11 @@ app.post('/getLeadById', (req, res, next) => {
   e.employee_id,
   e.first_name,
   c.company_id,
-  c.company_name
+  c.company_name,
+  pm.email_follow_up,
+  pm.follow_up,
+  pm.follow_up_date,
+  pm.email_duration
   From leads pm
   LEFT JOIN employee e ON pm.employee_id = e.employee_id
   LEFT JOIN company c ON pm.company_id = c.company_id
@@ -194,7 +198,11 @@ app.post('/getLeadsById', (req, res, next) => {
     e.employee_id,
     e.first_name,
     c.company_id,
-    c.company_name
+    c.company_name,
+      pm.email_follow_up,
+  pm.follow_up,
+  pm.follow_up_date,
+  pm.email_duration
   FROM leads pm
   LEFT JOIN employee e ON pm.employee_id = e.employee_id
   LEFT JOIN company c ON pm.company_id = c.company_id
@@ -306,6 +314,11 @@ app.post('/editLead', (req, res, next) => {
             ,modification_date=${db.escape(req.body.modification_date)}
             ,modified_by=${db.escape(req.body.modified_by)}
             ,software_category=${db.escape(req.body.software_category)}
+            ,email_follow_up=${db.escape(req.body.email_follow_up)}
+            ,follow_up=${db.escape(req.body.follow_up)}
+            ,follow_up_date=${db.escape(req.body.follow_up_date)}
+            ,email_duration=${db.escape(req.body.email_duration)}
+
             WHERE lead_id=${db.escape(req.body.lead_id)}`,
             (err, result) => {
               if (err) {

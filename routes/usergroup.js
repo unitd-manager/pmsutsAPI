@@ -87,6 +87,41 @@ app.post("/getusergroupForLoginUser", (req, res, next) => {
     }
   );
 });
+
+app.post("/getusergroupForLoginUser1", (req, res) => {
+  const { user_group_id, email } = req.body;
+
+  const userEmail = (email || '').toLowerCase().trim();
+
+  if (userEmail === 'fatema@unitdtechnologies.com') {
+    // Fetch projects with category = 'maintenance'
+    db.query(
+      `SELECT category FROM project WHERE category LIKE '%Maintenance%';`,
+      (err, result) => {
+        if (err) {
+          console.error("Error fetching maintenance projects:", err);
+          return res.status(500).send({ data: [], msg: "Failed" });
+        } else {
+          return res.status(200).send({ data: result, msg: "Success" });
+        }
+      }
+    );
+  } else {
+    // Fetch user group modules for other users
+    db.query(
+      `SELECT * FROM mod_acc_room_user_group WHERE user_group_id = ${db.escape(user_group_id)}`,
+      (err, result) => {
+        if (err) {
+          console.error("Error fetching user group modules:", err);
+          return res.status(500).send({ data: [], msg: "Failed" });
+        } else {
+          return res.status(200).send({ data: result, msg: "Success" });
+        }
+      }
+    );
+  }
+});
+
 app.post("/edit-usergroup", (req, res, next) => {
   db.query(
     `UPDATE user_group  

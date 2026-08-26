@@ -51,6 +51,57 @@ app.get('/getContent', (req, res, next) => {
 });
 
 
+
+app.get('/getResources', (req, res, next) => {
+  db.query(`Select c.title
+    ,c.resource_id
+  ,c.description
+  FROM resource c
+  WHERE c.resource_id !=''`,
+    (err, result) => {
+      if (err) {
+        console.log('error: ', err)
+        return res.status(400).send({
+          data: err,
+          msg: 'failed',
+        })
+      } else {
+        return res.status(200).send({
+          data: result,
+          msg: 'Success',
+        })
+      }
+
+ 
+    }
+  );
+});
+
+app.post('/getResourceById', (req, res, next) => {
+  db.query(`Select c.title
+  ,c.description
+  ,c.resource_id
+  FROM resource c
+  WHERE c.resource_id = ${db.escape(req.body.resource_id)} `,
+    (err, result) => {
+      if (err) {
+        console.log('error: ', err)
+        return res.status(400).send({
+          data: err,
+          msg: 'failed',
+        })
+      } else {
+        return res.status(200).send({
+          data: result[0],
+          msg: 'Success',
+        })
+      }
+
+  }
+ );
+});
+
+
 app.post('/getContentById', (req, res, next) => {
   db.query(`Select c.title
   , c.content_id
@@ -90,8 +141,6 @@ app.post('/getContentById', (req, res, next) => {
   }
  );
 });
-
-
 
 app.get('/getSortOrderbyId', (req, res, next) => {
   db.query(`Select sort_order
@@ -158,6 +207,29 @@ app.post("/editContent", (req, res, next) => {
             )}
             ,content_type=${db.escape(req.body.content_type)}
             WHERE content_id = ${db.escape(req.body.content_id)}`,
+    (err, result) => {
+      if (err) {
+        console.log("error: ", err);
+        return res.status(400).send({
+          data: err,
+          msg: "failed",
+        });
+      } else {
+        return res.status(200).send({
+          data: result,
+          msg: "Success",
+        });
+      }
+    }
+  );
+});
+
+app.post("/editResource", (req, res, next) => {
+  db.query(
+    `UPDATE resource
+            SET title=${db.escape(req.body.title)}
+            ,description=${db.escape(req.body.description)}
+            WHERE resource_id = ${db.escape(req.body.resource_id)}`,
     (err, result) => {
       if (err) {
         console.log("error: ", err);
@@ -248,10 +320,55 @@ app.post('/insertContent', (req, res, next) => {
 
   });
 });
+
+app.post('/insertResource', (req, res, next) => {
+
+  let data = {
+      title: req.body.title
+    , description: req.body.description
+ };
+  let sql = "INSERT INTO resource SET ?";
+  let query = db.query(sql, data,(err, result) => {
+    if (err) {
+      console.log('error: ', err)
+      return res.status(400).send({
+        data: err,
+        msg: 'failed',
+      })
+    } else {
+      return res.status(200).send({
+        data: result,
+        msg: 'Success',
+      })
+    }
+
+  });
+});
 app.post('/deleteContent', (req, res, next) => {
 
   let data = {content_id : req.body.content_id };
   let sql = "DELETE FROM content  WHERE ?";
+  let query = db.query(sql, data,(err, result) => {
+    if (err) {
+      console.log('error: ', err)
+      return res.status(400).send({
+        data: err,
+        msg: 'failed',
+      })
+    } else {
+      return res.status(200).send({
+        data: result,
+        msg: 'Success',
+      })
+    }
+
+  });
+});
+
+app.post('/deleteResource', (req, res, next) => {
+
+  let data = {resource_id : req.body.resource_id };
+  let sql = "DELETE FROM resource  WHERE ?";
   let query = db.query(sql, data,(err, result) => {
     if (err) {
       console.log('error: ', err)

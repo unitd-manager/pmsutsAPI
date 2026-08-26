@@ -49,7 +49,7 @@ app.get('/getMail', (req, res, next) => {
    ,s.value
   ,s.setting_id
   From setting s
-  Where s.key_text ='AdminMail' OR s.key_text ='CEOMail' OR s.key_text ='TechHeadMail'`,
+  Where s.key_text ='AdminMail' OR s.key_text ='CEOMail' OR s.key_text ='TechHeadMail' OR s.key_text ='HRMail'`,
   (err, result) => {
     if (err) {
       console.log('error: ', err)

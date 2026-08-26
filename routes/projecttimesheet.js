@@ -18,6 +18,7 @@ app.use(fileUpload({
 }));
 app.get('/getProjectTimesheet', (req, res, next) => {
   db.query(`Select 
+  p.title,
   pt.timesheet_title,
   t.task_title,
   pt.date,
@@ -58,6 +59,7 @@ LEFT JOIN (employee_timesheet et) ON (e.employee_id = et.employee_id)
 
 app.post('/getProjectTimeSheetById', (req, res, next) => {
   db.query(`Select 
+    p.title,
   pt.timesheet_title,
   t.task_title,
   pt.date,
@@ -237,9 +239,13 @@ app.post('/getTimeSheetProjectById', (req, res, next) => {
   e.first_name,
   e.employee_id,
   p.project_id,
-    pt.project_timesheet_id,
+  pt.project_timesheet_id,
   pt.description,
- pt.hours,
+  pt.hours,
+   (SELECT SUM(pt2.hours)
+     FROM project_timesheet pt2
+     WHERE t.employee_id = e.employee_id AND pt2.project_task_id = t.project_task_id
+    ) AS actual_hours,
  pt.project_milestone_id,
  pt.project_task_id,
  pt.creation_date,
@@ -341,7 +347,34 @@ app.post('/editTimeSheet', (req, res, next) => {
             }
           );
         });
-  
+  app.post("/getEmployeeByID", (req, res, next) => {
+  db.query(
+    `SELECT 
+                e.employee_id
+               ,e.first_name
+               ,pt.hours
+                FROM employee e 
+                LEFT JOIN project_timesheet pt ON (pt.employee_id = e.employee_id) 
+                LEFT JOIN project p ON (p.project_id = pt.project_id) 
+                WHERE  p.project_id=${db.escape(req.body.project_id)}
+GROUP BY p.project_id,e.employee_id;`,
+    (err, result) => {
+      if (err) {
+        console.log('error: ', err)
+        return res.status(400).send({
+          data: err,
+          msg: 'failed',
+        })
+      } else {
+        return res.status(200).send({
+          data: result,
+          msg: 'Success',
+        })
+      }
+
+    }
+  );
+});
 app.post('/insertTimeSheet', (req, res, next) => {
 
   let data = {date	: req.body.date	

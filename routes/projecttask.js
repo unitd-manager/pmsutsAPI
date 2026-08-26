@@ -19,7 +19,6 @@ app.use(fileUpload({
 
 
 
-
 app.get('/getProjectTask', (req, res, next) => {
   db.query(`SELECT
   pt.actual_completed_date,
@@ -36,6 +35,7 @@ app.get('/getProjectTask', (req, res, next) => {
   pt.status,
   pt.task_type,
   pt.project_id,
+  p.title,
   e.first_name,
   e.employee_id,
   pt.project_task_id,
@@ -48,7 +48,6 @@ LEFT JOIN project p ON pt.project_id = p.project_id
 LEFT JOIN employee e ON pt.employee_id = e.employee_id
 LEFT JOIN project_milestone m ON m.project_milestone_id = pt.project_milestone_id
   AND pt.project_task_id !='' AND pt.status!=''
-  
   GROUP BY pt.task_title,pt.project_task_id`,
   (err, result) => {
     if (err) {
@@ -66,6 +65,231 @@ LEFT JOIN project_milestone m ON m.project_milestone_id = pt.project_milestone_i
   }
 );
 });
+
+app.get('/getweeklyAppTimeSheet', (req, res, next) => {
+  const { project_id } = req.query; // Extract project_id from query parameters
+
+  // Calculate the start and end dates for the current week
+  const currentDate = new Date();
+  const currentDay = currentDate.getDay(); // 0 (Sunday) to 6 (Saturday)
+  const diff = currentDate.getDate() - currentDay + (currentDay === 0 ? -6 : 1);
+  const startOfWeek = new Date(currentDate.setDate(diff));
+  const endOfWeek = new Date(currentDate.setDate(diff + 6));
+
+  let query = `
+    SELECT 
+      pt.timesheet_title,
+      t.task_title,
+      pt.date,
+      p.title,
+      pt.status,
+      e.first_name,
+      p.project_id,
+      pt.project_timesheet_id,
+      pt.description,
+      pt.hours,
+      pt.project_milestone_id,
+      pt.project_task_id
+    FROM project_timesheet pt
+    LEFT JOIN project p ON pt.project_id = p.project_id
+    LEFT JOIN employee e ON pt.employee_id = e.employee_id
+    LEFT JOIN project_task t ON t.project_task_id = pt.project_task_id
+    LEFT JOIN project_milestone m ON m.project_milestone_id = pt.project_milestone_id
+    WHERE pt.project_task_id != '' 
+      AND pt.date >= ? AND pt.date <= ?`;
+
+  if (project_id) {
+    query += ` AND p.project_id = ${project_id}`;
+  }
+
+  db.query(query, [startOfWeek, endOfWeek], (err, result) => {
+    if (err) {
+      console.log('error: ', err)
+      return res.status(400).send({
+        data: err,
+        msg: 'failed',
+      })
+    } else {
+      return res.status(200).send({
+        data: result,
+        msg: 'Success',
+      });
+    }
+  });
+});
+app.get('/getQuarterlyAppTimeSheet', (req, res, next) => {
+  const { project_id } = req.query; // Extract project_id from query parameters
+
+  // Calculate the start and end dates for the last 3 months
+  const currentDate = new Date();
+  const endOfQuarter = new Date(currentDate.getFullYear(), Math.floor(currentDate.getMonth() / 3) * 3 + 3, 0);
+  const startOfQuarter = new Date(endOfQuarter);
+  startOfQuarter.setMonth(startOfQuarter.getMonth() - 3);
+
+  let query = `
+    SELECT 
+      pt.timesheet_title,
+      t.task_title,
+      pt.date,
+      p.title,
+      pt.status,
+      e.first_name,
+      p.project_id,
+      pt.project_timesheet_id,
+      pt.description,
+      pt.hours,
+      pt.project_milestone_id,
+      pt.project_task_id
+    FROM project_timesheet pt
+    LEFT JOIN project p ON pt.project_id = p.project_id
+    LEFT JOIN employee e ON pt.employee_id = e.employee_id
+    LEFT JOIN project_task t ON t.project_task_id = pt.project_task_id
+    LEFT JOIN project_milestone m ON m.project_milestone_id = pt.project_milestone_id
+    WHERE pt.project_task_id != '' 
+      AND pt.date >= ? AND pt.date <= ?`;
+
+  if (project_id) {
+    query += ` AND p.project_id = ${project_id}`;
+  }
+
+  db.query(query, [startOfQuarter, endOfQuarter], (err, result) => {
+    if (err) {
+      console.log('error: ', err)
+      return res.status(400).send({
+        data: err,
+        msg: 'failed',
+      });
+    } else {
+      return res.status(200).send({
+        data: result,
+        msg: 'Success',
+      });
+    }
+  });
+});
+
+app.get('/getAppTimeSheet', (req, res, next) => {
+  const { project_id } = req.query; // Extract project_id from query parameters
+
+  let query = `SELECT 
+    pt.timesheet_title,
+    t.task_title,
+    pt.date,
+    p.title,
+    pt.status,
+    e.first_name,
+    p.project_id,
+    pt.project_timesheet_id,
+    pt.description,
+    pt.hours,
+    pt.project_milestone_id,
+    pt.project_task_id
+  FROM project_timesheet pt
+  LEFT JOIN project p ON pt.project_id = p.project_id
+  LEFT JOIN employee e ON pt.employee_id = e.employee_id
+  LEFT JOIN project_task t ON t.project_task_id = pt.project_task_id
+  LEFT JOIN project_milestone m ON m.project_milestone_id = pt.project_milestone_id
+  WHERE pt.project_task_id != '' 
+    AND DATE(pt.date) = CURDATE()`;
+
+  if (project_id) {
+    query += ` AND p.project_id = ${project_id}`;
+  }
+
+  db.query(query, (err, result) => {
+    if (err) {
+      console.log('error: ', err);
+      return res.status(400).send({
+        data: err,
+        msg: 'failed',
+      });
+    } else {
+      return res.status(200).send({
+        data: result,
+        msg: 'Success',
+      });
+    }
+  });
+});
+app.get('/getAppProjectTimeSheet', (req, res, next) => {
+  const { project_id } = req.query; // Extract project_id from query parameters
+  let query = `SELECT 
+    pt.timesheet_title,
+    t.task_title,
+    pt.date,
+    p.title,
+    pt.status,
+    e.first_name,
+    p.project_id,
+    pt.project_timesheet_id,
+    pt.description,
+    pt.hours,
+    pt.project_milestone_id,
+    pt.project_task_id
+    FROM project_timesheet pt
+    LEFT JOIN project p ON pt.project_id = p.project_id
+    LEFT JOIN employee e ON pt.employee_id = e.employee_id
+    LEFT JOIN project_task t ON t.project_task_id = pt.project_task_id
+    LEFT JOIN project_milestone m ON m.project_milestone_id = pt.project_milestone_id
+    WHERE pt.project_task_id != ''`;
+
+  if (project_id) {
+    query += ` AND p.project_id = ${project_id}`;
+  }
+
+  db.query(query, (err, result) => {
+    if (err) {
+      console.log('error: ', err);
+      return res.status(400).send({
+        data: err,
+        msg: 'failed',
+      });
+    } else {
+      return res.status(200).send({
+        data: result,
+        msg: 'Success',
+      });
+    }
+  });
+});
+
+
+app.get('/getFilterData', (req, res, next) => {
+                db.query(`SELECT 
+    pt.timesheet_title,
+    t.task_title,
+    pt.date,
+    p.title,
+    pt.status,
+    e.first_name,
+    p.project_id,
+    pt.project_timesheet_id,
+    pt.description,
+    pt.hours,
+    pt.project_milestone_id,
+    pt.project_task_id
+    FROM project_timesheet pt
+    LEFT JOIN project p ON pt.project_id = p.project_id
+    LEFT JOIN employee e ON pt.employee_id = e.employee_id
+    LEFT JOIN project_task t ON t.project_task_id = pt.project_task_id
+    LEFT JOIN project_milestone m ON m.project_milestone_id = pt.project_milestone_id
+    WHERE pt.project_task_id != ''`,
+                (err, result) => {
+                  if (err) {
+                    console.log('error: ', err)
+                    return res.status(400).send({
+                      data: err,
+                      msg: 'failed',
+                    })
+                  } else {
+                    return res.status(200).send({
+                      data: result,
+                      msg: 'Success',
+              })
+            }
+                }
+              );
+            });
 
 app.get('/getEmployee', (req, res, next) => {
                 db.query(`SELECT 
@@ -90,6 +314,7 @@ app.get('/getEmployee', (req, res, next) => {
                 }
               );
             });
+
 
 app.get('/getProjectTask1', (req, res, next) => {
   db.query(`SELECT
@@ -805,7 +1030,8 @@ let yesterdayDate = `${yesterdayYear}-${yesterdayMonth}-${yesterdayDay}`;
   LEFT JOIN project_task t ON t.project_task_id = pt.project_task_id
   LEFT JOIN employee e ON pt.employee_id = e.employee_id
   LEFT JOIN project_milestone m ON m.project_milestone_id = pt.project_milestone_id
-  WHERE pt.date BETWEEN '${yesterdayDate}' AND '${currentDate}'`,
+  WHERE pt.date BETWEEN '${yesterdayDate}' AND '${currentDate}'
+  ORDER BY pt.date DESC`,
    
     (err, result) => {
       if (err) {
@@ -824,7 +1050,6 @@ let yesterdayDate = `${yesterdayYear}-${yesterdayMonth}-${yesterdayDay}`;
     }
   );
 });
-
 
 app.get('/secret-route', userMiddleware.isLoggedIn, (req, res, next) => {
   console.log(req.userData);

@@ -265,101 +265,6 @@ app.post('/edit-Tenders', (req, res, next) => {
   );
 });
 
-app.post("/getCodeValue", (req, res, next) => {
-  var type = req.body.type;
-  let sql = '';
-  let key_text = '';
-  let withprefix = true;
-  if(type == 'opportunity'){
-      key_text = 'nextOpportunityCode';
-      sql = "SELECT * FROM setting WHERE key_text='opportunityCodePrefix' OR key_text='nextOpportunityCode'";
-  }else if(type == 'receipt'){
-      key_text = 'nextReceiptCode';
-      sql = "SELECT * FROM setting WHERE key_text='receiptCodePrefix' OR key_text='nextReceiptCode'";
-  }else if(type == 'lead'){
-      key_text = 'nextLeadsCode';
-      sql = "SELECT * FROM setting WHERE key_text='leadsPrefix' OR key_text='nextLeadsCode'";  
-  }else if(type == 'invoicestype'){
-      key_text = 'nextInvoiceCode';
-    sql = "SELECT * FROM setting WHERE key_text='invoiceCodePrefix' OR key_text='nextInvoiceCode'";  
-  }else if(type == 'subConworkOrder'){
-      key_text = 'nextSubconCode';
-    sql = "SELECT * FROM setting WHERE key_text='subconCodePrefix' OR key_text='nextSubconCode'";  
-  }else if(type == 'purchaseOrder'){
-    key_text = 'nextPurchaseOrderCode';
-  sql = "SELECT * FROM setting WHERE key_text='purchaseOrderCodePrefix' OR key_text='nextPurchaseOrderCode'";  
-}
-  else if(type == 'project'){
-      key_text = 'nextProjectCode';
-      sql = "SELECT * FROM setting WHERE key_text='projectCodePrefix' OR key_text='nextProjectCode'";  
-  }else if(type == 'opportunityproject'){
-      key_text = 'nextOpportunityProjectCode';
-      sql = "SELECT * FROM setting WHERE key_text='opportunityprojectCodePrefix' OR key_text='nextOpportunityProjectCode'";  
-  }else if(type == 'quote'){
-      key_text = 'nextQuotationCode';
-      sql = "SELECT * FROM setting WHERE key_text='quotationCodePrefix' OR key_text='nextQuotationCode'";  
-  }
-  else if(type == 'creditNote'){
-      key_text = 'nextCreditNoteCode';
-      sql = "SELECT * FROM setting WHERE key_text='creditNotePrefix' OR key_text='nextCreditNoteCode'";  
-  }else if(type == 'employee'){
-    //   withprefix = false;
-      key_text = 'nextEmployeeCode';
-    sql = "SELECT * FROM setting WHERE key_text='employeeCodePrefix' OR key_text='nextEmployeeCode'";  
-  }
-  else if(type == 'claim'){
-      // withprefix = false;
-      key_text = 'nextClaimCode';
-      sql = "SELECT * FROM setting WHERE key_text='claimCodePrefix' OR  key_text='nextClaimCode'";  
-  }
-  else if(type == 'QuoteCodeOpp'){
-      withprefix = false;
-      key_text = 'nextQuoteCodeOpp';
-      sql = "SELECT * FROM setting WHERE  key_text='nextQuoteCodeOpp'";  
-  }
-  else if(type == 'wocode'){
-      key_text = 'nextWOCode';
-      sql = "SELECT * FROM setting WHERE key_text='wOCodePrefix' OR key_text='nextWOCode'";  
-  }
-  let query = db.query(sql, (err, result) => {
-      let old = result
-    if (err) {
-      return res.status(400).send({
-        data: err,
-        msg: "failed",
-      });
-    } else {
-       
-        var finalText = '';
-        var newvalue = 0
-        if(withprefix == true){
-            var codeObject = result.filter(obj => obj.key_text === key_text);
-            
-             var prefixObject = result.filter(obj => obj.key_text != key_text);
-            finalText = prefixObject[0].value + codeObject[0].value;
-            newvalue = parseInt(codeObject[0].value) + 1
-        }else{
-            finalText = result[0].value
-            newvalue = parseInt(result[0].value) + 1
-        }
-        newvalue = newvalue.toString()
-         let query = db.query(`UPDATE setting SET value=${db.escape(newvalue)} WHERE key_text = ${db.escape(key_text)}`, (err, result) => {
-            if (err) {
-              return res.status(400).send({
-                data: err,
-                msg: "failed",
-              });
-            } else {
-              return res.status(200).send({
-                data: finalText,
-                result:old
-              });
-            }
-        });
-    }
-  });
-});
-
 app.post('/getCostingSummaryById', (req, res, next) => {
   db.query(`SELECT 
             c.* 
@@ -441,33 +346,6 @@ app.post('/deleteTender', (req, res, next) => {
           return res.status(200).send({
             data: result,
             msg:'Tender has been removed successfully'
-          });
-    }
-  });
-});
-app.post('/insertTenders', (req, res, next) => {
-
-  let data = {title	:req.body.title	
-   , company_id	: req.body.company_id
-   ,opportunity_code:req.body.opportunity_code
-   ,category: req.body.category
-   ,status:"Converted to Project"
-   ,creation_date: req.body.creation_date
-   ,created_by: req.body.created_by
-   ,staff_id: req.body.staff_id
-   };
-  let sql = "INSERT INTO opportunity SET ?";
-  let query = db.query(sql, data,(err, result) => {
-    if (err) {
-      console.log('error: ', err)
-      return res.status(400).send({
-        data: err,
-        msg: 'failed',
-      })
-    } else {
-      return res.status(200).send({
-        data: result,
-        msg: 'Success',
           });
     }
   });
@@ -561,18 +439,26 @@ app.post('/edit-TabCostingSummaryForm', (req, res, next) => {
             ,finance_charges=${db.escape(req.body.finance_charges)}
             ,other_charges=${db.escape(req.body.other_charges)}
             ,total_cost =${db.escape(req.body.total_cost)}
-           , total_labour_charges=${db.escape(req.body.total_labour_charges)}
-           , total_material_price=${db.escape(req.body.total_material_price)}
-           ,opportunity_id=${db.escape(req.body.opportunity_id)}
-           ,profit_percentage=${db.escape(req.body.profit_percentage)}
-           ,profit=${db.escape(req.body.profit)}
             WHERE opportunity_costing_summary_id = ${db.escape(req.body.opportunity_costing_summary_id)}`,
-    (err, result) =>{
+    (err, result) => {
+     
       if (err) {
-          return res.status(400).send({
-              data: err,
-              msg:'error'
-            });
+        return res.status(400).send({
+          msg: 'No result found',
+          sql:`UPDATE opportunity_costing_summary 
+            SET no_of_worker_used=${db.escape(req.body.no_of_worker_used)}
+            ,no_of_days_worked=${db.escape(req.body.no_of_days_worked)}
+            ,labour_rates_per_day=${db.escape(req.body.labour_rates_per_day)}
+            ,po_price=${db.escape(req.body.po_price)}
+            ,transport_charges=${db.escape(req.body.transport_charges)}
+            ,salesman_commission=${db.escape(req.body.salesman_commission)}
+            ,office_overheads=${db.escape(req.body.office_overheads)}
+            ,finance_charges=${db.escape(req.body.finance_charges)}
+            ,other_charges=${db.escape(req.body.other_charges)}
+            ,total_cost =${db.escape(req.body.total_cost)}
+            WHERE opportunity_costing_summary_id = ${db.escape(req.body.opportunity_costing_summary_id)}`
+          
+        });
       } else {
             return res.status(200).send({
               data: result,
@@ -582,7 +468,6 @@ app.post('/edit-TabCostingSummaryForm', (req, res, next) => {
      }
   );
 });
-
 app.post('/getQuoteLineItemsById', (req, res, next) => {
   db.query(`SELECT
             qt.* 
@@ -765,155 +650,6 @@ app.get('/getTenderSummaryId', (req, res, next) => {
  
     }
   );
-});
-
-app.post('/insertTabcostingsummary', (req, res, next) => {
-  let data = {
-    opportunity_costing_summary_id: req.body.opportunity_costing_summary_id || null,
-    opportunity_id: req.body.opportunity_id || null,
-    no_of_worker_used: req.body.no_of_worker_used || 0,
-    no_of_days_worked: req.body.no_of_days_worked || 0,
-    labour_rates_per_day: req.body.labour_rates_per_day || 0,
-    po_price: req.body.po_price || 0,
-    transport_charges: req.body.transport_charges || 0,
-    salesman_commission: req.body.salesman_commission || 0,
-    office_overheads: req.body.office_overheads || 0,
-    finance_charges: req.body.finance_charges || 0,
-    other_charges: req.body.other_charges || 0,
-    total_labour_charges: req.body.total_labour_charges || 0,
-    total_cost: req.body.total_cost || 0,
-    total_material_price: req.body.total_material_price || 0,
-    profit_percentage: req.body.profit_percentage || 0,
-    profit: req.body.profit || 0
-  };
-
-  let sql = "INSERT INTO opportunity_costing_summary SET ?";
-  let query = db.query(sql, data, (err, result) => {
-    if (err) {
-      return res.status(400).send({
-        data: err,
-        msg: 'Failed'
-      });
-    } else {
-      return res.status(200).send({
-        data: result,
-        msg: 'New quote item has been created successfully'
-      });
-    }
-  });
-});
-
-app.post('/getTabCostingSummaryById', (req, res, next) => {
-  db.query(`SELECT 
-  c.no_of_days_worked,
-  c.opportunity_costing_summary_id,
-  c.no_of_worker_used,
-  c.labour_rates_per_day,
-  c.po_price,
-  c.po_price_with_gst,
-  c.profit_percentage,
-  c.invoiced_price,
-  c.profit,
-  c.total_material_price,
-  c.transport_charges,
-  c.total_labour_charges,
-  c.salesman_commission,
-  c.finance_charges,
-  c.office_overheads,
-  c.other_charges,
-  c.total_cost
-FROM opportunity_costing_summary c
-WHERE c.opportunity_id = ${db.escape(req.body.opportunity_id)} 
-ORDER BY c.opportunity_costing_summary_id DESC;`,
-    (err, result) =>{
-      if (err) {
-           return res.status(400).send({
-                data: err,
-                msg:'err'
-              });
-        } else {
-            if(err){
-              return res.status(200).send({
-                  data:[],
-                msg:'err'
-              });
-            }else{
-                  return res.status(200).send({
-                data: result,
-                msg:'Success'
-              });
-            }
-
-        }
- 
-    }
-  );
-});
-
-app.post('/getTabOpportunityCostingSummary', (req, res, next) => {
-  db.query(`SELECT 
-  c.no_of_worker_used
-  ,c.no_of_days_worked
-  ,c.labour_rates_per_day
-  ,c.po_price
-  ,c.po_price_with_gst
-  ,c.profit_percentage
-  ,c.profit
-  ,c.total_material_price
-  ,c.transport_charges
-  ,c.total_labour_charges
-  ,c.salesman_commission
-  ,c.finance_charges
-  ,c.office_overheads
-  ,c.other_charges
-  ,c.total_cost of FROM opportunity_costing_summary c WHERE c.opportunity_id =${db.escape(req.body.opportunity_id)} 
-  ORDER BY c.opportunity_costing_summary_id DESC`,
-    (err, result) =>{
-      if (err) {
-           return res.status(400).send({
-                data: err,
-                msg:'err'
-              });
-        } else {
-            if(result.length === 0){
-              return res.status(400).send({
-                msg:'err'
-              });
-            }else{
-                  return res.status(200).send({
-                data: result,
-                msg:'Success'
-              });
-            }
-
-        }
- 
-    }
-  );
-});
-
-
-app.get('/getTabCostingSummary', (req, res, next) => {
-db.query(`SELECT 
-c.total_material_price,c.transport_charges,c.total_labour_charges,c.salesman_commission,c.finance_charges,c.office_overheads,c.other_charges,c.total_cost
-FROM opportunity_costing_summary c 
-WHERE c.opportunity_id != '' 
-ORDER BY c.opportunity_costing_summary_id DESC`,
-  (err, result) => {
-   
-    if (err) {
-      return res.status(400).send({
-        msg: 'No result found'
-      });
-    } else {
-          return res.status(200).send({
-            data: result,
-            msg:'Success'
-          });
-      }
-
-  }
-);
 });
 
 app.get('/getTenderBestMonthSummary', (req, res, next) => {

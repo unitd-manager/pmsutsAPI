@@ -490,6 +490,31 @@ app.post('/edit-jobinformation', (req, res, next) => {
                 }
               );
             });
+            
+             app.get('/getEmployee1', (req, res, next) => {
+                db.query(`SELECT 
+                 s.staff_id
+               ,s.first_name
+               ,s.staff_type
+                FROM staff s
+                WHERE  s.staff_id!=''
+                `,
+                (err, result) => {
+                  if (err) {
+                    console.log('error: ', err)
+                    return res.status(400).send({
+                      data: err,
+                      msg: 'failed',
+                    })
+                  } else {
+                    return res.status(200).send({
+                      data: result,
+                      msg: 'Success',
+              })
+            }
+                }
+              );
+            });
                       
 app.get('/secret-route', userMiddleware.isLoggedIn, (req, res, next) => {
     console.log(req.userData);

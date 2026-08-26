@@ -6,10 +6,14 @@ var fs = require("fs");
 var http = require("http");
 var https = require("https");
 const fileUpload = require("express-fileupload");
+const nodemailer = require("nodemailer");
 const cron = require("node-cron");
 var privateKey = fs.readFileSync("sslcrt/server.key", "utf8");
 var certificate = fs.readFileSync("sslcrt/server.crt", "utf8");
 var credentials = { key: privateKey, cert: certificate };
+const mysql = require('mysql2');
+const axios = require('axios');
+const moment = require("moment"); // ADDED: Moment.js for date manipulation
 
 var httpServer = http.createServer(app);
 var httpsServer = https.createServer(credentials, app);
@@ -70,9 +74,11 @@ const geocountry = require("./routes/geocountry.js");
 const invoice = require("./routes/invoice.js");
 const bank = require("./routes/bank.js");
 const note = require("./routes/note.js");
+const email = require("./routes/email.js");
 const vehicle = require("./routes/vehicle.js");
 const attendance = require("./routes/attendance.js");
 const usergroup = require("./routes/usergroup.js");
+const commonApi = require("./routes/commonApi.js");
 const reports = require("./routes/reports.js");
 const claim = require("./routes/claim.js");
 const projecttabquote = require("./routes/projecttabquote.js");
@@ -130,8 +136,10 @@ app.use("/clients", clients);
 app.use("/loan", loan);
 app.use("/expensehead", expensehead);
 app.use("/section", section);
+app.use("/email", email);
 app.use("/attendance", attendance);
 app.use("/usergroup", usergroup);
+app.use("/commonApi", commonApi);
 app.use("/reports", reports);
 app.use("/claim", claim);
 app.use("/projecttabquote", projecttabquote);
@@ -150,6 +158,114 @@ app.use(
   })
 );
 
+const dbRemote = mysql.createConnection({
+  host: '69.57.161.117',
+  port: 3306,
+  user: 'fhtraders_user',
+  password: '!@syed#$',
+  database: 'fhtraders'
+});
+
+dbRemote.connect((err) => {
+  if (err) {
+    console.error('Remote DB connection failed:', err);
+  } else {
+    console.log('Connected to remote database');
+  }
+});
+
+// Run every day at 1:00 AM
+cron.schedule('0 1 * * *', async () => {
+  try {
+    const today = new Date();
+    const day = today.getDate();
+
+    console.log(`Running payment reminder cron for day ${day}`);
+
+    // Get all active payment reminders
+    db.query(
+      `SELECT * FROM payment_reminder WHERE cron_run='1'`,
+      (err, reminders) => {
+        if (err) {
+          console.error(err);
+          return;
+        }
+
+        reminders.forEach((row) => {
+
+          // First Alert (5th - 7th)
+          if (day >= 5 && day < 8) {
+
+            dbRemote.query(
+              `UPDATE setting 
+               SET value=? 
+               WHERE key_text='paymentReminder'`,
+              [1],
+              (err) => {
+                if (err) console.error(err);
+                else console.log(
+                  `First alert updated for ${row.domain_link}`
+                );
+              }
+            );
+          }
+
+          // Second Alert (8th - 10th)
+          if (day >= 8 && day <= 10) {
+
+            dbRemote.query(
+              `UPDATE setting 
+               SET value=? 
+               WHERE key_text='paymentReminder2'`,
+              [1],
+              (err) => {
+                if (err) console.error(err);
+                else console.log(
+                  `Second alert updated for ${row.domain_link}`
+                );
+              }
+            );
+          }
+
+          // Disconnect Site (12th)
+          if (day >= 12) {
+
+            dbRemote.query(
+              `UPDATE staff 
+               SET published=? 
+               WHERE email='fhtradersambattur@cubosale.in'`,
+              [0],
+              (err) => {
+                if (err) console.error(err);
+                else console.log(
+                  `Site disconnected for ${row.domain_link}`
+                );
+              }
+            );
+          }
+
+        });
+      }
+    );
+  } catch (error) {
+    console.error('Cron Error:', error);
+  }
+});
+
+
+
+
+const transporter = nodemailer.createTransport({
+ host: "premium128.web-hosting.com",
+    port: 465,
+    secure: true,
+  auth: {
+   user: "notification@unitdtechnologies.com",
+    pass: "notification777#",
+  },
+});
+
+
 const date = new Date();
 
 let currentDay = String(date.getDate()).padStart(2, "0");
@@ -161,224 +277,318 @@ let currentYear = date.getFullYear();
 let currentDate = `${currentYear}-${currentMonth}-${currentDay}`;
 
 const employees = [
-  {
-    name: "Moin",
-  },
+  
   {
     name: "Gobi",
   },
-    {
-    name: "Renuka",
+
+{
+    name: "Andhuna",
   },
-    {
-    name: "Rafi",
-  },
-    {
-    name: "Meera",
-  },
-    {
-    name: "Sulfiya",
-  },
-    {
+   
+  {
     name: "Muthumari",
   },
-    {
-    name: "Gokila",
-  },
-    {
+  {
     name: "Jasmine",
   },
-    {
-    name: "Sabina",
+   {
+    name: "Nabeela",
+  },
+   {
+    name: "Mirzath",
+  },
+   {
+    name: "Bushra",
   },
   {
-    name: "Sujitha"
-  }
+    name: "Ponmalar",
+  },
+  
+ 
+
+ 
 ];
 
 cron.schedule(
-  "14 17 * * 1-6",
-  () => {
-    const todayDate = new Date().toISOString().slice(0, 10); // Rename currentDate to todayDate
-    const currentDay = new Date().getDay();
-    const weekStart = new Date();
-    weekStart.setDate(weekStart.getDate() - currentDay);
-    const weekStartDate = weekStart.toISOString().slice(0, 10);
+  "30 20 * * 1-6",
+  async () => {   // ✅ async here
+    try {
+      let emailContent = `
+        <style>
+          table {
+            border-collapse: collapse;
+            width: 100%;
+            border: 1px solid black;
+          }
+          th, td {
+            border: 1px solid black;
+            padding: 5px;
+            text-align: left;
+          }
+        </style>
 
-    let emailContent = `
-      <style>
-        table {
-          border-collapse: collapse;
-          width: 100%;
-          border: 1px solid black;
-        }
-        th, td {
-          border: 1px solid black;
-          padding: 5px;
-          text-align: left;
-        }
-        img {
-          display: block;
-          margin-left: auto;
-          margin-right: auto;
-        }
-      </style>
+        <p>Dear Team,</p>
+        <p>Please find today's timesheet details:</p>
+      `;
 
-      <p>Dear Team,</p>
-      <br/>
-      <p>Please find today's timesheet details:</p>`;
-      
-    const emailPromises = employees.map((employee) => {
-      const employeeName = employee.name;
+      const emailPromises = employees.map((employee) => {
+           const employeeName = employee.name;
 
-      const todayQuery = new Promise((resolve, reject) => {
-        db.query(
-          `SELECT 
-            pt.timesheet_title,
-            t.task_title,
-            pt.date,
-            p.title,
-            pt.status,
-            e.first_name,
-            e.employee_id,
-            p.project_id,
-            pt.project_timesheet_id,
-            pt.description,
-            pt.hours,
-            pt.project_milestone_id,
-            pt.project_task_id,
-            (SELECT SUM(pt2.hours)
-             FROM project_timesheet pt2
-             WHERE t.employee_id = e.employee_id AND pt2.project_task_id = t.project_task_id
-            ) AS actual_hours
-          FROM project_timesheet pt
-          LEFT JOIN project p ON pt.project_id = p.project_id
-          LEFT JOIN project_task t ON t.project_task_id = pt.project_task_id
-          LEFT JOIN employee e ON pt.employee_id = e.employee_id
-          LEFT JOIN project_milestone m ON m.project_milestone_id = pt.project_milestone_id
-          WHERE pt.date = '${todayDate}' AND e.first_name = '${employeeName}'`,
-          (err, result) => {
-            if (err) {
-              console.log(`Error fetching today's timesheet data for ${employeeName}:`, err);
-              reject(err);
-            } else {
-              console.log(`Result for ${employeeName}:`, result);
-             const totalHoursToday = result.reduce((total, row) => total + row.hours, 0);
-              const tableRows = result
-                .map((row) => {
-                  return `<tr>
+        return new Promise((resolve, reject) => {
+          db.query(
+            `SELECT 
+           pt.timesheet_title,
+           t.task_title,
+           pt.date,
+           p.title,
+           pt.status,
+           e.first_name,
+           e.employee_id,
+           p.project_id,
+           pt.project_timesheet_id,
+           pt.description,
+           pt.hours,
+           pt.project_milestone_id,
+           pt.project_task_id,
+           (SELECT SUM(pt2.hours)
+            FROM project_timesheet pt2
+            WHERE t.employee_id = e.employee_id AND pt2.project_task_id = t.project_task_id
+           ) AS actual_hours
+         FROM project_timesheet pt
+         LEFT JOIN project p ON pt.project_id = p.project_id
+         LEFT JOIN project_task t ON t.project_task_id = pt.project_task_id
+         LEFT JOIN employee e ON pt.employee_id = e.employee_id
+         LEFT JOIN project_milestone m ON m.project_milestone_id = pt.project_milestone_id
+            WHERE pt.date = '${currentDate}' AND e.first_name = '${employeeName}'`,
+            
+            (err, result) => {
+               if (err) {
+      console.log(`Error fetching timesheet data for ${employeeName}:`, err);
+      reject(err);
+      return;
+    }
+     console.log("Employee:", employeeName);
+console.log("Rows:", result.length);
+             
+                const rows = result.map(row => `
+                  <tr>
                     <td>${row.first_name}</td>
                     <td>${row.title}</td>
                     <td>${row.task_title}</td>
                     <td>${row.hours}</td>
                     <td>${row.description}</td>
-                    <td>${row.actual_hours}</td>
-                  </tr>`;
-                })
-                .join("");
+                    <td>${row.actual_hours || 0}</td>
+                  </tr>
+                `).join("");
 
-              if (tableRows) {
                 emailContent += `
-                  <p>Employee Name: <b>${employeeName}</b></p>
-                  <p>Total Hours Today: ${totalHoursToday} hrs</p>
+                  <p><b>Employee Name:</b> ${employee.name}</p>
                   <table>
                     <tr>
-                      <th>First Name</th>
+                      <th>Name</th>
                       <th>Project</th>
                       <th>Task</th>
-                      <th>Hrs.</th>
+                      <th>Hrs</th>
                       <th>Description</th>
-                      <th>Total Hrs.</th>
+                      <th>Total Hrs</th>
                     </tr>
-                    ${tableRows}
-                  </table><br/>`;
-              }
+                    ${rows}
+                  </table><br/>
+                `;
+              
 
-              resolve({ totalHoursToday, tableRows }); // Resolve an object containing both total hours and table rows
+              resolve();
             }
-          }
-        );
+          );
+        });
       });
 
-      // Query for current week's total hours
-      const currentWeekQuery = new Promise((resolve, reject) => {
-        db.query(
-          `SELECT 
-            SUM(p.hours) AS total_week_hours
-           FROM project_timesheet p
-           LEFT JOIN employee e ON p.employee_id = e.employee_id
-           WHERE date BETWEEN '${weekStartDate}' AND '${todayDate}' AND e.first_name = '${employeeName}'`,
-          (err, result) => {
-            if (err) {
-              console.log(`Error fetching current week's total hours for ${employeeName}:`, err);
-              reject(err);
-            } else {
-              const totalHoursWeek = result[0].total_week_hours || 0;
-              resolve(totalHoursWeek);
-            }
-          }
-        );
+      await Promise.all(emailPromises);
+
+      emailContent += `<p>Regards<br/>Admin</p>`;
+
+      await transporter.sendMail({
+        from: '"UTS Notifications" <notification@unitdtechnologies.com>',
+          to: ["syed@unitdtechnologies.com","gobi@unitdtechnologies.com","andhuna@unitdtechnologies.com","muthumari@unitdtechnologies.com","jasmine@unitdtechnologies.com","nabeela@unitdtechnologies.com","mirzath@unitdtechnologies.com","bushra@unitdtechnologies.com", "ponmalar@unitdtechnologies.com"],
+        subject: `${currentDate} UTS Tasks Overview`,
+        html: emailContent,
       });
 
-      return Promise.all([todayQuery, currentWeekQuery]);
-    });
+      console.log("✅ Cron email sent successfully");
 
-    Promise.all(emailPromises)
-      .then((results) => {
-        emailContent += `
-          <br/>
-          <p>Regards</p>
-          <p>Admin</p>`;
-
-        const API_KEY = "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";
-
-        sgMail.setApiKey(API_KEY);
-
-        const data = {
-          to: ["sulfiya@unitdtechnologies.com"],
-          from: "notification@unitdtechnologies.com",
-          subject: ` ${todayDate} UTS Tasks Overview`,
-          templateId: "d-3250d5edacd24616962f998dedb313d6",
-          dynamicTemplateData: {
-            currentDate: todayDate,
-            employees: employees.map((employee, index) => ({
-              name: employee.name,
-              weekStartDate: weekStartDate,
-              timesheetData: results[index][0],
-              total_hours: results[index][0].totalHoursToday,
-              total_hours_week: results[index][1], // Using current week's total hours
-            })),
-          },
-        };
-
-        sgMail
-          .send(data)
-          .then(() => console.log("email sent ..."))
-          .catch((error) => console.log(error));
-      })
-      .catch((error) => {
-        console.error("Error sending emails:", error);
-      });
+    } catch (error) {
+      console.error("❌ Cron email failed:", error);
+    }
   },
   {
     timezone: "Asia/Kolkata",
   }
 );
 
-// Weekly timesheet emails
+
+
+// cron.schedule(
+//   "30 20 * * 1-6",
+// //   "* * * * *",
+//   () => {
+//     let emailContent = `
+//       <style>
+//         table {
+//           border-collapse: collapse;
+//           width: 100%;
+//           border: 1px solid black;
+//         }
+//         th, td {
+//           border: 1px solid black;
+//           padding: 5px;
+//           text-align: left;
+//         }
+//         img {
+//           display: block;
+//           margin-left: auto;
+//           margin-right: auto;
+//         }
+//       </style>
+
+//       <p>Dear Team,</p>
+//       <br/>
+//       <p>Please find today's timesheet details:</p>`;
+
+//     const emailPromises = employees.map((employee) => {
+//       const employeeName = employee.name;
+
+//       return new Promise((resolve, reject) => {
+//         db.query(
+//           `SELECT 
+//             pt.timesheet_title,
+//             t.task_title,
+//             pt.date,
+//             p.title,
+//             pt.status,
+//             e.first_name,
+//             e.employee_id,
+//             p.project_id,
+//             pt.project_timesheet_id,
+//             pt.description,
+//             pt.hours,
+//             pt.project_milestone_id,
+//             pt.project_task_id,
+//             (SELECT SUM(pt2.hours)
+//              FROM project_timesheet pt2
+//              WHERE t.employee_id = e.employee_id AND pt2.project_task_id = t.project_task_id
+//             ) AS actual_hours
+//           FROM project_timesheet pt
+//           LEFT JOIN project p ON pt.project_id = p.project_id
+//           LEFT JOIN project_task t ON t.project_task_id = pt.project_task_id
+//           LEFT JOIN employee e ON pt.employee_id = e.employee_id
+//           LEFT JOIN project_milestone m ON m.project_milestone_id = pt.project_milestone_id
+//           WHERE pt.date = '${currentDate}' AND e.first_name = '${employeeName}'`,
+//           (err, result) => {
+//             if (err) {
+//               console.log(`Error fetching timesheet data for ${employeeName}:`, err);
+//               reject(err);
+//             } else {
+//               const tableRows = result
+//                 .map((row) => {
+//                   return `<tr>
+//                     <td>${row.first_name}</td>
+//                     <td>${row.title}</td>
+//                     <td>${row.task_title}</td>
+//                     <td>${row.hours}</td>
+//                     <td>${row.description}</td>
+//                     <td>${row.actual_hours}</td>
+//                   </tr>`;
+//                 })
+//                 .join("");
+
+//               if (tableRows) {
+//                 emailContent += `
+//                   <p>Employee Name: <b>${employeeName}</b></p>
+//                   <table>
+//                     <tr>
+//                       <th>First Name</th>
+//                       <th>Project</th>
+//                       <th>Task</th>
+//                       <th>Hrs.</th>
+//                       <th>Description</th>
+//                       <th>Total Hrs.</th>
+//                     </tr>
+//                     ${tableRows}
+//                   </table><br/>`;
+//               }
+//               resolve(result);
+//             }
+//           }
+//         );
+//       });
+//     });
+
+//     Promise.all(emailPromises)
+//       .then((results) => {
+//         emailContent += `
+//           <br/>
+//           <p>Regards</p>
+//           <p>Admin</p>`;
+
+//         const API_KEY = "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";
+
+//         sgMail.setApiKey(API_KEY);
+
+//         const data = {
+//           to: ["syed@unitdtechnologies.com","moin@unitdtechnologies.com","gobi@unitdtechnologies.com","andhuna@unitdtechnologies.com","muthumari@unitdtechnologies.com","jasmine@unitdtechnologies.com","nabeela@unitdtechnologies.com"],
+//         // to: ["meera@unitdtechnologies.com"],
+//           from: "notification@unitdtechnologies.com",
+//           subject: ` ${currentDate} UTS Tasks Overview`,
+//           templateId: "d-4e915bf997e64593806cdb07cc1eac41",
+//           dynamicTemplateData: {
+//             currentDate: currentDate,
+//             employees: employees.map((employee, index) => ({
+//               name: employee.name,
+//               timesheetData: results[index],
+//             })),
+//           },
+//         };
+
+//         sgMail
+//           .send(data)
+//           .then(() => console.log("email sent ..."))
+//           .catch((error) => console.log(error));
+//       })
+//       .catch((error) => {
+//         console.error("Error sending emails:", error);
+//       });
+//   },
+//   {
+//     timezone: "Asia/Kolkata",
+//   }
+// );
+
+// weekly timesheet emails
+
+const today = date.getDay();
+//const diff = date.getDate() - today + (today === 1 ? 0 : today === 0 ? -6 : 1);
+const diff = date.getDate() - today + (today === 0 ? -6 : 1);
+
+const startOfWeek = new Date(date); // Create a new date object for the start of the week
+startOfWeek.setDate(diff);
+
+const endOfWeek = new Date(date); // Create a new date object for the end of the week
+endOfWeek.setDate(diff + 5);
+
+const startDay = String(startOfWeek.getDate()).padStart(2, "0");
+const startMonth = String(startOfWeek.getMonth() + 1).padStart(2, "0");
+const startYear = startOfWeek.getFullYear();
+const startDate = `${startYear}-${startMonth}-${startDay}`;
+
+const endDay = String(endOfWeek.getDate()).padStart(2, "0");
+const endMonth = String(endOfWeek.getMonth() + 1).padStart(2, "0");
+const endYear = endOfWeek.getFullYear();
+const endDate = `${endYear}-${endMonth}-${endDay}`;
 
 cron.schedule(
     "0 20 * * 6",
     () => {
-      const reportDate = new Date();
-      const dayOfWeek = reportDate.getDay();
-      const startOfWeek = new Date(reportDate);
-      startOfWeek.setDate(reportDate.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-      const endOfWeek = new Date(startOfWeek);
-      endOfWeek.setDate(startOfWeek.getDate() + 5);
-      const startDate = startOfWeek.toISOString().slice(0, 10);
-      const endDate = endOfWeek.toISOString().slice(0, 10);
-
       let emailContent = `
         <style>
           table {
@@ -398,60 +608,105 @@ cron.schedule(
           }
         </style>
   
-        <br/>`;
+        <p>Dear Team,</p>
+        <br/>
+        <p>Please find this week's timesheet details:</p>`;
         
-      const emailPromise = new Promise((resolve, reject) => {
-        db.query(
-          `SELECT
-            e.first_name,
-            e.employee_id,
-            ROUND(COALESCE(SUM(pt.hours), 0), 2) AS hours,
-            ROUND(COALESCE(SUM(pt.hours), 0), 2) AS actual_hours,
-            'Weekly total' AS task_title,
-            'All projects' AS title,
-            'Total working hours for the week' AS description
-          FROM employee e
-          LEFT JOIN project_timesheet pt
-            ON pt.employee_id = e.employee_id
-            AND pt.date BETWEEN '${startDate}' AND '${endDate}'
-          GROUP BY e.employee_id, e.first_name
-          ORDER BY e.first_name`,
-          (err, result) => {
-            if (err) {
-              console.log("Error fetching weekly timesheet data:", err);
-              reject(err);
-              return;
+        let totalHours;
+  
+      const emailPromises = employees.map((employee) => {
+        const employeeName = employee.name;
+        
+        
+        return new Promise((resolve, reject) => {
+          db.query(
+            `SELECT 
+              pt.timesheet_title,
+              t.task_title,
+              pt.date,
+              p.title,
+              pt.status,
+              e.first_name,
+              e.employee_id,
+              p.project_id,
+              pt.project_timesheet_id,
+              pt.description,
+              pt.hours,
+              pt.project_milestone_id,
+              pt.project_task_id,
+              (SELECT SUM(pt2.hours)
+               FROM project_timesheet pt2
+               WHERE t.employee_id = e.employee_id AND pt2.project_task_id = t.project_task_id
+              ) AS actual_hours
+            FROM project_timesheet pt
+            LEFT JOIN project p ON pt.project_id = p.project_id
+            LEFT JOIN project_task t ON t.project_task_id = pt.project_task_id
+            LEFT JOIN employee e ON pt.employee_id = e.employee_id
+            LEFT JOIN project_milestone m ON m.project_milestone_id = pt.project_milestone_id
+            WHERE pt.date BETWEEN '${startDate}' AND '${endDate}' AND e.first_name = '${employeeName}'`,
+            (err, result) => {
+              if (err) {
+                console.log(`Error fetching timesheet data for ${employeeName}:`, err);
+                reject(err);
+              } else {
+                //const totalHours = totalHours = result.reduce((acc, row) => acc + (parseFloat(row.hours) || 0), 0);
+                const employeeTotalHours = result.reduce((acc, row) => acc + (+row.hours || 0), 0);
+                totalHours = (totalHours || 0) + employeeTotalHours;
+                const tableRows = result
+                  .map((row,index) => {
+                    return `<tr>
+                      <td>${index+1}</td>
+                      <td>${row.title}</td>
+                      <td>${row.first_name}</td>
+                      <td>${row.task_title}</td>
+                      <td>${row.hours}</td>
+                    </tr>`;
+                  })
+                  .join("");
+  
+                if (tableRows) {
+                  emailContent += `
+                    <p>Employee Name: <b>${employeeName}</b>  Total Hrs(1 Week):${totalHours} </p>
+                    <table>
+                      <tr>
+                        <th>S.No</th>
+                        <th>Project</th>
+                        <th>Name</th>
+                        <th>Task</th>
+                        <th>Hrs.</th>
+                      </tr>
+                      ${tableRows}
+                    </table><br/>`;
+                }
+                resolve(result);
+              }
             }
-            resolve(result);
-          }
-        );
+          );
+        });
       });
   
-      emailPromise
+      Promise.all(emailPromises)
         .then((results) => {
           emailContent += `
             <br/>
             <p>Regards</p>
             <p>Admin</p>`;
   
-          const API_KEY = "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";
-  
+          const API_KEY = "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";
           sgMail.setApiKey(API_KEY);
   
           const data = {
-            to: ["sulfiya@unitdtechnologies.com"],
+            to: ["syed@unitdtechnologies.com","gobi@unitdtechnologies.com","andhuna@unitdtechnologies.com","muthumari@unitdtechnologies.com","jasmine@unitdtechnologies.com","nabeela@unitdtechnologies.com","mirzath@unitdtechnologies.com","bushra@unitdtechnologies.com", "ponmalar@unitdtechnologies.com"],
             from: "notification@unitdtechnologies.com",
             subject: `${startDate} - ${endDate} UTS Tasks Overview`,
-            templateId: "d-42189235e44545b4bd9fdba9a5b9b31e",
+            templateId: "d-e9f0c8e8cfc44f6eab2d46101cdf6ebd",
             dynamicTemplateData: {
               startDate: startDate,
               endDate:endDate,
-              reportGreeting: "Dear Team,",
-              reportHeading: "Please find this week's timesheet details:",
-              employees: results.map((row) => ({
-                name: row.first_name,
-                total_hours: Number(row.hours || 0),
-                timesheetData: [row],
+              employees: employees.map((employee, index) => ({
+                name: employee.name,
+                total_hours: results[index].reduce((acc, row) => acc + (+row.hours || 0), 0),
+                timesheetData: results[index],
               })),
             },
           };
@@ -469,190 +724,375 @@ cron.schedule(
       timezone: "Asia/Kolkata",
     }
   );
+  
 
-// Monthly timesheet summary (Week 1 - Week 4 breakdown), sent on the 1st of every
-// month at exactly 8:00 PM IST, for the previous (just completed) month.
+const SENDGRID_API_KEY = "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";
+sgMail.setApiKey(SENDGRID_API_KEY);
+
+const lead_id = process.argv[2];
+const follow_up_type = process.argv[3];
+
+const emailContents = {
+  followup1: 'Hi',
+  followup2: 'Hello',
+  followup3: 'Welcome'
+};
+
+async function sendFollowUpEmail(follow_up_type) {
+  const emailContent = emailContents[follow_up_type];
+  if (!emailContent) {
+    console.log(`No email content found for follow-up type = ${follow_up_type}`);
+    return;
+  }
+
+  const msg = {
+    to: 'admin@unitdtechnologies.com',
+      from: 'notification@unitdtechnologies.com',
+      subject: `Follow-Up Email: ${follow_up_type}`,
+    text: emailContent,
+  };
+
+  try {
+    await sgMail.send(msg);
+    console.log(`Follow-up email (${follow_up_type}) sent to lead_id = ${lead_id}`);
+  } catch (error) {
+    console.error('Error sending email:', error);
+  }
+}
+
+sendFollowUpEmail(follow_up_type);
+
 cron.schedule(
-  "0 20 1 * *",
-  () => {
-    const reportDate = new Date();
-
-    // Previous month's date range
-    const startOfMonth = new Date(reportDate.getFullYear(), reportDate.getMonth() - 1, 1);
-    const endOfMonth = new Date(reportDate.getFullYear(), reportDate.getMonth(), 0);
-    const startDate = startOfMonth.toISOString().slice(0, 10);
-    const endDate = endOfMonth.toISOString().slice(0, 10);
-    const daysInMonth = endOfMonth.getDate();
-    const monthLabel = startOfMonth.toLocaleString("en-US", {
-      month: "long",
-      year: "numeric",
-    });
-
-    // Fixed 4-week split of the month: 1-7, 8-14, 15-21, 22-end
-    const weekBoundaries = [
-      { week: 1, from: 1, to: 7 },
-      { week: 2, from: 8, to: 14 },
-      { week: 3, from: 15, to: 21 },
-      { week: 4, from: 22, to: daysInMonth },
-    ];
-
-    const getWeekIndex = (dayOfMonth) => {
-      const w = weekBoundaries.find((b) => dayOfMonth >= b.from && dayOfMonth <= b.to);
-      return w ? w.week : 4;
-    };
-
-    // Pull every timesheet row in the month for every current employee, so
-    // employees with zero hours in a week still show up with 0, not blank.
-    const emailPromise = new Promise((resolve, reject) => {
-      db.query(
-        `SELECT
-          e.employee_id,
-          e.first_name,
-          e.email,
-          pt.date,
-          pt.hours
-        FROM employee e
-        LEFT JOIN project_timesheet pt
-          ON pt.employee_id = e.employee_id
-          AND pt.date BETWEEN '${startDate}' AND '${endDate}'
-        ORDER BY e.first_name, pt.date`,
-        (err, result) => {
-          if (err) {
-            console.log("Error fetching monthly timesheet data:", err);
-            reject(err);
-            return;
-          }
-          resolve(result);
-        }
-      );
-    });
-
-    emailPromise
-      .then((rows) => {
-        // Build per-employee weekly totals
-        const employeeMap = new Map();
-
-        rows.forEach((row) => {
-          if (!employeeMap.has(row.employee_id)) {
-            employeeMap.set(row.employee_id, {
-              name: row.first_name,
-              email: row.email,
-              week1: 0,
-              week2: 0,
-              week3: 0,
-              week4: 0,
-              total: 0,
-            });
-          }
-
-          if (row.date && row.hours) {
-            const entry = employeeMap.get(row.employee_id);
-            const dayOfMonth = new Date(row.date).getDate();
-            const weekIndex = getWeekIndex(dayOfMonth);
-            const hours = Number(row.hours) || 0;
-
-            entry[`week${weekIndex}`] += hours;
-            entry.total += hours;
-          }
-        });
-
-        const employees = Array.from(employeeMap.values()).map((e) => ({
-          name: e.name,
-          email: e.email,
-          week1: Math.round(e.week1 * 100) / 100,
-          week2: Math.round(e.week2 * 100) / 100,
-          week3: Math.round(e.week3 * 100) / 100,
-          week4: Math.round(e.week4 * 100) / 100,
-          total: Math.round(e.total * 100) / 100,
-        }));
-
-        // Column / grand totals
-        const columnTotals = employees.reduce(
-          (acc, e) => {
-            acc.week1 += e.week1;
-            acc.week2 += e.week2;
-            acc.week3 += e.week3;
-            acc.week4 += e.week4;
-            acc.total += e.total;
-            return acc;
-          },
-          { week1: 0, week2: 0, week3: 0, week4: 0, total: 0 }
-        );
-
-        const employeeRows = employees
-          .map(
-            (e) => `
-              <tr>
-                <td>${e.name}</td>
-                <td style="text-align:center;">${e.week1}</td>
-                <td style="text-align:center;">${e.week2}</td>
-                <td style="text-align:center;">${e.week3}</td>
-                <td style="text-align:center;">${e.week4}</td>
-                <td style="text-align:center;"><b>${e.total}</b></td>
-              </tr>`
-          )
-          .join("");
-
-        const emailContent = `
-          <style>
-            table { border-collapse: collapse; width: 100%; border: 1px solid #ccc; }
-            th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-            th { background: #0b2e6f; color: #fff; }
-            tfoot td { background: #eef2fb; font-weight: bold; }
-          </style>
-          <p>Dear Team,</p>
-          <p>Please find below the working hours summary for each staff for ${monthLabel} (Week 1 to Week 4).</p>
-          <p>This includes the total hours worked by each team member.</p>
-          <table>
-            <thead>
-              <tr>
-                <th>Staff Name</th>
-                <th style="text-align:center;">Week 1 (Hrs)</th>
-                <th style="text-align:center;">Week 2 (Hrs)</th>
-                <th style="text-align:center;">Week 3 (Hrs)</th>
-                <th style="text-align:center;">Week 4 (Hrs)</th>
-                <th style="text-align:center;">Total (Hrs)</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${employeeRows}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td>Total (Hrs)</td>
-                <td style="text-align:center;">${Math.round(columnTotals.week1 * 100) / 100}</td>
-                <td style="text-align:center;">${Math.round(columnTotals.week2 * 100) / 100}</td>
-                <td style="text-align:center;">${Math.round(columnTotals.week3 * 100) / 100}</td>
-                <td style="text-align:center;">${Math.round(columnTotals.week4 * 100) / 100}</td>
-                <td style="text-align:center;">${Math.round(columnTotals.total * 100) / 100}</td>
-              </tr>
-            </tfoot>
-          </table>
-          <br/>
-          <p><b>Note:</b> The hours are calculated based on logged working time. Please reach out to your manager for any discrepancies.</p>
-          <br/>
-          <p>Regards,</p>
-          <p><b>Admin Team</b></p>`;
-
-        const API_KEY = "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";
-        sgMail.setApiKey(API_KEY);
-
-        const ccEmails = employees.map((e) => e.email).filter(Boolean);
-
-        return sgMail.send({
-          to: ["sulfiya@unitdtechnologies.com"],
-          cc: ccEmails,
-          from: "notification@unitdtechnologies.com",
-          subject: `${monthLabel} - UTS Monthly Working Hours Summary`,
-          html: emailContent,
-        });
-      })
-      .then(() => console.log("monthly email sent ..."))
-      .catch((error) => console.error("Error sending monthly email:", error));
+  "0 09 * * *", 
+  async () => {
+    try {
+      const response = await axios.get('http://vacrm.smartprosoft.com/admin/index.php?_topRm=project&module=project_task&_spAction=sendFollowUpSMS&showHTML=0');
+      
+      console.log('Successfully triggered the function by visiting the URL.');
+      console.log('Response:', response.data);
+    } catch (error) {
+      console.error('Error triggering the function by visiting the URL:', error.message);
+    }
   },
   {
     timezone: "Asia/Kolkata",
   }
 );
 
+
+sgMail.setApiKey("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");
+
+
+cron.schedule(
+  "0 9 * * 6", // Every Saturday at 9 AM
+  () => {
+    db.query(
+      "SELECT employee_id, first_name FROM employee WHERE employee_id != ''",
+      (err, employees) => {
+        if (err) {
+          console.error("Error fetching employees:", err);
+          return;
+        }
+
+        const employeeIds = employees.map(emp => emp.employee_id);
+        const aggregatedLeaveSummary = {};
+        const detailedLeaveData = {};
+
+        // ==============================
+        // SUMMARY QUERY
+        // ==============================
+     const summaryQuery = `
+SELECT
+    e.employee_id,
+    e.first_name,
+
+    COALESCE(SUM(
+        CASE
+            WHEN l.leave_type = 'permission'
+            AND YEAR(l.from_date) = YEAR(CURDATE())
+            AND MONTH(l.from_date) = MONTH(CURDATE())
+            THEN l.no_of_days
+            ELSE 0
+        END
+    ), 0) AS permission_this_month,
+
+    COALESCE(SUM(
+        CASE
+            WHEN l.leave_type = 'permission'
+            AND YEAR(l.from_date) = YEAR(CURDATE())
+            THEN l.no_of_days
+            ELSE 0
+        END
+    ), 0) AS permission_this_year,
+
+    COALESCE(SUM(
+        CASE
+            WHEN l.leave_type != 'permission'
+            AND YEAR(l.from_date) = YEAR(CURDATE())
+            AND MONTH(l.from_date) = MONTH(CURDATE())
+            THEN l.no_of_days
+            ELSE 0
+        END
+    ), 0) AS other_leaves_this_month,
+
+    COALESCE(SUM(
+        CASE
+            WHEN l.leave_type != 'permission'
+            AND YEAR(l.from_date) = YEAR(CURDATE())
+            THEN l.no_of_days
+            ELSE 0
+        END
+    ), 0) AS other_leaves_this_year
+
+FROM employee e
+LEFT JOIN empleave l
+    ON e.employee_id = l.employee_id
+WHERE e.employee_id != ''
+GROUP BY e.employee_id, e.first_name
+ORDER BY e.first_name
+`;
+
+        db.query(summaryQuery, [employeeIds], (err, summaryResult) => {
+          if (err) {
+            console.error("Error fetching leave summary:", err);
+            return;
+          }
+
+          summaryResult.forEach(row => {
+            aggregatedLeaveSummary[row.employee_id] = row;
+          });
+
+          // ==============================
+          // EMAIL HTML
+          // ==============================
+          let htmlContent = `
+            <style>
+              table { border-collapse: collapse; width: 100%; }
+              th, td { border: 1px solid #000; padding: 6px; }
+            </style>
+
+            <p>Dear Team,</p>
+            <p>Please find below the employee leave & timesheet overview:</p>
+
+            <h3>Monthly and Yearly Leave Summary</h3>
+
+            <table>
+              <thead>
+                <tr>
+                  <th>Staff</th>
+                  <th>Permission (Month)</th>
+                  <th>Permission (Year)</th>
+                  <th>Other Leaves (Month)</th>
+                  <th>Other Leaves (Year)</th>
+                </tr>
+              </thead>
+              <tbody>
+          `;
+
+          Object.values(aggregatedLeaveSummary).forEach(row => {
+            htmlContent += `
+              <tr>
+                <td>${row.first_name}</td>
+                <td>${row.permission_this_month}</td>
+                <td>${row.permission_this_year}</td>
+                <td>${row.other_leaves_this_month}</td>
+                <td>${row.other_leaves_this_year}</td>
+              </tr>
+            `;
+          });
+
+          htmlContent += `
+              </tbody>
+            </table>
+
+            <br/>
+            <p>Regards,<br/><strong>Admin</strong></p>
+          `;
+
+          // ==============================
+          // NODEMAILER TRANSPORTER
+          // ==============================
+          const transporter = nodemailer.createTransport({
+            host: "premium128.web-hosting.com",
+            port: 587,
+            secure: false,
+            auth: {
+              user: "notification@unitdtechnologies.com",
+              pass: "notification777#",
+            },
+          });
+
+          // ==============================
+          // SEND EMAIL
+          // ==============================
+          transporter.sendMail(
+            {
+              from: '"Notification" <notification@unitdtechnologies.com>',
+              to: [
+                "syed@unitdtechnologies.com",
+                "gobi@unitdtechnologies.com",
+                "andhuna@unitdtechnologies.com",
+                "muthumari@unitdtechnologies.com",
+                "jasmine@unitdtechnologies.com",
+                "nabeela@unitdtechnologies.com",
+                "mirzath@unitdtechnologies.com","bushra@unitdtechnologies.com", "ponmalar@unitdtechnologies.com",
+              ].join(","),
+
+              subject: `${new Date().toLocaleDateString()} | UTS Employee Leave & Timesheet Overview`,
+              html: htmlContent,
+            },
+            (err, info) => {
+              if (err) {
+                console.error("Email send error:", err);
+              } else {
+                console.log("Email sent successfully:", info.response);
+              }
+            }
+          );
+        });
+      }
+    );
+  },
+  {
+    timezone: "Asia/Kolkata",
+  }
+);
+
+
+cron.schedule(
+  "45 15 * * 1-6", // Runs at 2:33 PM Monday to Saturday
+  () => {
+    const currentMonthStart = moment().startOf("month").format("YYYY-MM-DD");
+    const currentMonthEnd = moment().endOf("month").format("YYYY-MM-DD");
+
+    let emailContent = `
+      <style>
+        table {
+          border-collapse: collapse;
+          width: 100%;
+          border: 1px solid black;
+        }
+        th, td {
+          border: 1px solid black;
+          padding: 5px;
+          text-align: left;
+        }
+      </style>
+      <p>Dear Team,</p>
+      <br/>
+      <p>Please find the current month's total leave summary for each employee:</p>
+      <table>
+        <tr>
+          <th>Employee Name</th>
+          <th>Total Leaves</th>
+        </tr>`;
+
+    const query = `
+      SELECT e.first_name AS employee_name, 
+             COUNT(l.leave_date) AS total_leaves
+      FROM employee e
+      LEFT JOIN leaves l ON e.employee_id = l.employee_id
+        AND l.leave_date BETWEEN '${currentMonthStart}' AND '${currentMonthEnd}'
+      GROUP BY e.first_name
+      ORDER BY e.first_name`;
+
+    db.query(query, (err, result) => {
+      if (err) {
+        console.error("Error fetching leave data:", err);
+        return;
+      }
+
+      console.log("Leave data fetched:", result);
+
+      // Construct table rows
+      const tableRows = result
+        .map(
+          (row) => `
+          <tr>
+            <td>${row.employee_name}</td>
+            <td>${row.total_leaves || 0}</td>
+          </tr>`
+        )
+        .join("");
+
+      emailContent += tableRows;
+      emailContent += `
+        </table>
+        <br/>
+        <p>Regards,</p>
+        <p>Admin</p>`;
+
+      const API_KEY = "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";
+      sgMail.setApiKey(API_KEY);
+
+      const data = {
+        to: ["andhuna@unitdtechnologies.com"],
+        from: "notification@unitdtechnologies.com",
+        subject: `Employee Monthly Leave Summary for ${moment().format("MMMM YYYY")}`,
+        html: emailContent,
+      };
+
+      sgMail
+        .send(data)
+        .then(() => console.log("Email sent successfully"))
+        .catch((error) => console.error("Error sending email:", error));
+    });
+  },
+  {
+    timezone: "Asia/Kolkata",
+  }
+);
+
+
+app.post("/send-leave-approvals", (req, res) => {
+  const query = `
+    SELECT 
+      e.first_name AS name,
+      e.email,
+      el.from_date,
+      el.to_date,
+      el.leave_type
+    FROM empleave el
+    JOIN employee e ON el.employee_id = e.employee_id
+    where e.email = ${db.escape(req.body.email)}
+      AND el.from_date = CURDATE()
+  `;
+
+  db.query(query, async (err, results) => {
+    if (err) {
+      console.error("DB error:", err);
+      return res.status(500).send("Database query failed");
+    }
+
+    if (results.length === 0) {
+      return res.status(200).send("No approved leaves starting today.");
+    }
+
+    try {
+      const sendPromises = results.map((row) => {
+        return sgMail.send({
+          to: row.email,
+          from: "notification@unitdtechnologies.com",
+          templateId: "d-68846bc3e0854e53add5bf3bbb1eb289",
+          dynamicTemplateData: {
+            name: row.name,
+            fromDate: row.from_date,
+            toDate: row.to_date,
+            leaveType: row.leave_type,
+          },
+        });
+      });
+
+      await Promise.all(sendPromises);
+      res.send("Leave approval emails sent successfully.");
+    } catch (error) {
+      console.error("SendGrid error:", error);
+      res.status(500).send("Failed to send emails.");
+    }
+  });
+});
+
+
 module.exports = app;
+
+

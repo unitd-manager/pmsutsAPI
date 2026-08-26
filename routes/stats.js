@@ -17,32 +17,6 @@ app.use(cors());
 app.use(fileUpload({
     createParentPath: true
 }));
-app.get('/getcoldCallCountByEmployee', (req, res) => {
-  const { month } = req.query; // Assuming you pass the month as a query parameter
-
-  // Query to count cold calls (non-null comments) by employee for the specified month
-  const query = 
-  `SELECT
-      e.employee_id,
-      e.first_name,
-      COUNT(c.comments) AS cold_call_count
-    FROM Leads l
-    LEFT JOIN employee e ON e.employee_id = l.employee_id
-    LEFT JOIN comment c ON c.record_id = l.lead_id
-    WHERE MONTH(l.lead_date) =''
-    GROUP BY e.employee_id, e.first_name`;
-
-  // Execute the query
-  db.query(query, [month], (err, result) => {
-    if (err) {
-      console.error('Error executing query:', err);
-      res.status(500).send({ error: 'Error fetching data' });
-      return;
-    }
-
-    res.status(200).send({ data: result });
-  });
-});
 app.get('/getEmployeeNameByColdCall', (req, res, next) => {
   db.query(
 
@@ -52,7 +26,7 @@ app.get('/getEmployeeNameByColdCall', (req, res, next) => {
     l.lead_date,
     c.company_name,
     COUNT(l.employee_id) AS cold_call_count
-   FROM Leads l
+   FROM leads l
    LEFT JOIN employee e ON e.employee_id = l.employee_id
    LEFT JOIN (company c) ON (c.company_id = l.company_id)
    Where l.lead_id !=''
@@ -75,45 +49,6 @@ app.get('/getEmployeeNameByColdCall', (req, res, next) => {
     }
   );
 });
-app.post('/getEmployeeNameByComments', (req, res, next) => {
-  const { month } = req.body; // Extract query parameters
-  const currentYear = new Date().getFullYear(); // Get current year
-
-  let dateCondition = ''; // Initialize the date condition
-
-  dateCondition = `WHERE DATE_FORMAT(l.lead_date, '%M') = ${db.escape(month)} AND YEAR(l.lead_date) = ${currentYear}`;
-
-  db.query(
-    `SELECT
-      e.employee_id,
-      l.lead_date,
-      e.first_name,
-      COUNT(c.comments) AS cold_call_count
-    FROM leads l
-    LEFT JOIN employee e ON e.employee_id = l.employee_id
-    LEFT JOIN comment c ON c.record_id = l.lead_id
-  ${dateCondition}
-    GROUP BY e.employee_id, e.first_name`,
-    (err, result) => {
-      if (err) {
-        console.log("Error fetching data:", err);
-        res.status(500).send({ msg: 'Error fetching employee data' });
-        return;
-      }
-
-      if (result.length > 0) {
-        res.status(200).send({
-          data: result,
-          msg: 'Success'
-        });
-      } else {
-        res.status(404).send({ msg: 'No employee data found' });
-      }
-    }
-  );
-});
-
-
 app.get('/getLeadStats', (req, res, next) => {
   db.query(`SELECT a.* ,pe.first_name ,c.company_name 
   FROM leads
@@ -293,7 +228,7 @@ app.get('/getEmployeeNameByColdCall', (req, res, next) => {
     l.lead_date,
     c.company_name,
     COUNT(l.employee_id) AS cold_call_count
-   FROM Leads l
+   FROM leads l
    LEFT JOIN employee e ON e.employee_id = l.employee_id
    LEFT JOIN (company c) ON (c.company_id = l.company_id)
    Where l.lead_id !=''
@@ -318,7 +253,43 @@ app.get('/getEmployeeNameByColdCall', (req, res, next) => {
 });
 
 
+app.post('/getEmployeeNameByComments', (req, res, next) => {
+  const { month } = req.body; // Extract query parameters
+  const currentYear = new Date().getFullYear(); // Get current year
 
+  let dateCondition = ''; // Initialize the date condition
+
+  dateCondition = `WHERE DATE_FORMAT(l.lead_date, '%M') = ${db.escape(month)} AND YEAR(l.lead_date) = ${currentYear}`;
+
+  db.query(
+    `SELECT
+      e.employee_id,
+      l.lead_date,
+      e.first_name,
+      COUNT(c.comments) AS cold_call_count
+    FROM leads l
+    LEFT JOIN employee e ON e.employee_id = l.employee_id
+    LEFT JOIN comment c ON c.record_id = l.lead_id
+  ${dateCondition}
+    GROUP BY e.employee_id, e.first_name`,
+    (err, result) => {
+      if (err) {
+        console.log("Error fetching data:", err);
+        res.status(500).send({ msg: 'Error fetching employee data' });
+        return;
+      }
+
+      if (result.length > 0) {
+        res.status(200).send({
+          data: result,
+          msg: 'Success'
+        });
+      } else {
+        res.status(404).send({ msg: 'No employee data found' });
+      }
+    }
+  );
+});
 
 
 app.get("/ProjectEmployeeStats", (req, res, next) => {

@@ -43,6 +43,33 @@ app.post('/login', (req, res, next) => {
   );
 });
 
+app.post("/getAppLogin", (req, res, next) => {
+  db.query(
+    `SELECT staff_id,
+  email,
+  pass_word,
+  first_name,
+  employee_id
+  FROM staff 
+  WHERE email=${db.escape(req.body.email)} AND pass_word=${db.escape(req.body.password)}
+   `,
+    (err, result) => {
+      if (result.length == 0) {
+        return res.status(400).send({
+          msg: "No result found",
+        });
+      } else {
+        return res.status(200).send({
+          data: result,
+          msg: "Success",
+        });
+      }
+    }
+  );
+});
+
+
+
 app.get('/secret-route', userMiddleware.isLoggedIn, (req, res, next) => {
   console.log(req.userData);
   res.send('This is the secret content. Only logged in users can see that!');

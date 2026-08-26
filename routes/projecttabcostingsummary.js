@@ -250,6 +250,7 @@ app.post('/getTabCostingSummaryById', (req, res, next) => {
       }
     );
   });
+
  app.post('/insertCostingCharges', (req, res, next) => {
     let data = {
       costing_summary_id: req.body.costing_summary_id,
