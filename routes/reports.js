@@ -5,6 +5,7 @@ const jwt = require("jsonwebtoken");
 const db = require("../config/Database.js");
 const userMiddleware = require("../middleware/UserModel.js");
 var md5 = require("md5");
+const moment = require("moment");
 const fileUpload = require("express-fileupload");
 const _ = require("lodash");
 const mime = require("mime-types");
@@ -18,7 +19,119 @@ app.use(
     createParentPath: true,
   })
 );
+app.get('/getWorkingHoursReport', (req, res, next) => {
+  const year = parseInt(req.query.year) || moment().year();
+  const month = parseInt(req.query.month) || (moment().month() + 1);
 
+  const rangeStart = moment().year(year).month(month - 1).startOf("month").format("YYYY-MM-DD");
+  const rangeEnd = moment().year(year).month(month - 1).endOf("month").format("YYYY-MM-DD");
+
+  db.query(
+    `SELECT
+      e.employee_id,
+      e.first_name,
+      COALESCE(SUM(CAST(pt.hours AS DECIMAL(10,2))), 0) AS total_hours
+    FROM employee e
+    LEFT JOIN project_timesheet pt
+      ON pt.employee_id = e.employee_id
+      AND pt.date BETWEEN ${db.escape(rangeStart)} AND ${db.escape(rangeEnd)}
+    WHERE e.email IS NOT NULL AND e.email != ''
+    GROUP BY e.employee_id, e.first_name
+    ORDER BY total_hours DESC`,
+    (err, result) => {
+      if (err) {
+        console.log('error: ', err)
+        return res.status(400).send({
+          data: err,
+          msg: 'failed',
+        })
+      } else {
+        const staffList = result.map((r) => ({
+          name: r.first_name || "(No name)",
+          total_hours: Number(r.total_hours) || 0,
+        }));
+
+        const totalHours = staffList.reduce((a, s) => a + s.total_hours, 0);
+        const avgHours = staffList.length ? totalHours / staffList.length : 0;
+        const highest = staffList.reduce((max, s) => (s.total_hours > (max?.total_hours ?? -1) ? s : max), null);
+        const lowest = staffList.reduce((min, s) => (s.total_hours < (min?.total_hours ?? Infinity) ? s : min), null);
+        const top5 = [...staffList].sort((a, b) => b.total_hours - a.total_hours).slice(0, 5);
+
+        return res.status(200).send({
+          data: {
+            year,
+            month,
+            monthLabel: moment().year(year).month(month - 1).format("MMMM YYYY"),
+            totalStaff: staffList.length,
+            totalHours: Math.round(totalHours * 100) / 100,
+            avgHoursPerStaff: Math.round(avgHours * 100) / 100,
+            highest,
+            lowest,
+            top5,
+            staffList,
+          },
+          msg: 'Success',
+        })
+      }
+    }
+  );
+});
+
+app.get('/getLeavePermissionReport', (req, res, next) => {
+  const year = parseInt(req.query.year) || moment().year();
+  const month = parseInt(req.query.month) || (moment().month() + 1);
+
+  const rangeStart = moment().year(year).month(month - 1).startOf("month").format("YYYY-MM-DD");
+  const rangeEnd = moment().year(year).month(month - 1).endOf("month").format("YYYY-MM-DD");
+
+  db.query(
+    `SELECT
+      e.employee_id,
+      e.first_name,
+      COALESCE(SUM(CASE WHEN l.leave_type != 'permission' OR l.leave_type IS NULL THEN l.no_of_days ELSE 0 END), 0) AS total_leave,
+      COALESCE(SUM(CASE WHEN l.leave_type = 'permission' THEN 1 ELSE 0 END), 0) AS total_permission
+    FROM employee e
+    LEFT JOIN empleave l
+      ON l.employee_id = e.employee_id
+      AND l.from_date BETWEEN ${db.escape(rangeStart)} AND ${db.escape(rangeEnd)}
+    WHERE e.email IS NOT NULL AND e.email != ''
+    GROUP BY e.employee_id, e.first_name
+    ORDER BY e.first_name`,
+    (err, result) => {
+      if (err) {
+        console.log('error: ', err)
+        return res.status(400).send({
+          data: err,
+          msg: 'failed',
+        })
+      } else {
+        const staffList = result.map((r) => ({
+          name: r.first_name || "(No name)",
+          leave: Number(r.total_leave) || 0,
+          permission: Number(r.total_permission) || 0,
+        }));
+
+        const totalLeaves = staffList.reduce((a, s) => a + s.leave, 0);
+        const totalPermissions = staffList.reduce((a, s) => a + s.permission, 0);
+        const leastLeaveTop5 = [...staffList].sort((a, b) => a.leave - b.leave).slice(0, 5);
+
+        return res.status(200).send({
+          data: {
+            year,
+            month,
+            monthLabel: moment().year(year).month(month - 1).format("MMMM YYYY"),
+            totalStaff: staffList.length,
+            totalPermissions,
+            totalLeaves,
+            leastLeaveTop5,
+            staffList,
+          },
+          msg: 'Success',
+        })
+      }
+    }
+  );
+});
 app.post('/getEmployeeReports', (req, res, next) => {
   db.query(`SELECT ts.*
               ,t.title AS training_title

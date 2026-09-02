@@ -226,7 +226,7 @@ exports.getFilesByRecordIdAndRoomName = (req, res) => {
               message: "Could not find the file. ",
             });
       }
-      console.log("fileInfos : ", fileInfos);
+      // console.log("fileInfos : ", fileInfos);
       res.status(200).send(fileInfos);
     }
   );
@@ -255,7 +255,7 @@ exports.getFilesByIdAndRoom = (req, res) => {
               message: "Could not find the file. ",
             });
       }
-      console.log("fileInfos : ", fileInfos);
+      // console.log("fileInfos : ", fileInfos);
       res.status(200).send(fileInfos);
     }
   );

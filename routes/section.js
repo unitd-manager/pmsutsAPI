@@ -17,6 +17,88 @@ app.use(cors());
 app.use(fileUpload({
     createParentPath: true
 }));
+
+const reportSections = [
+  {
+    title: 'Working Hours Report',
+    route: '/WorkingHoursReport',
+    sortOrder: 90,
+  },
+  {
+    title: 'Leave & Permission Report',
+    route: '/LeavePermissionReport',
+    sortOrder: 91,
+  },
+];
+
+function ensureReportSections() {
+  reportSections.forEach((reportSection) => {
+    const insertSectionSql = `
+      INSERT INTO section
+        (section_title, section_type, button_position, \`groups\`, routes,
+         internal_link, published, show_in_nav, sort_order)
+      SELECT ?, 'Value2', 'Reports', 'Reports', ?, ?, 1, 1, ?
+      WHERE NOT EXISTS (
+        SELECT 1 FROM section WHERE section_title = ? AND routes = ?
+      )`;
+
+    db.query(
+      insertSectionSql,
+      [
+        reportSection.title,
+        reportSection.route,
+        reportSection.route,
+        reportSection.sortOrder,
+        reportSection.title,
+        reportSection.route,
+      ],
+      (insertError) => {
+        if (insertError) {
+          console.error(`Unable to create ${reportSection.title}:`, insertError);
+          return;
+        }
+
+        db.query(
+          'SELECT section_id FROM section WHERE section_title = ? AND routes = ? LIMIT 1',
+          [reportSection.title, reportSection.route],
+          (sectionError, sections) => {
+            if (sectionError || !sections.length) {
+              console.error(`Unable to find ${reportSection.title}:`, sectionError);
+              return;
+            }
+
+            const section = sections[0];
+            const grantPermissionsSql = `
+              INSERT INTO mod_acc_room_user_group
+                (list, detail, print, export, section_id, section_title,
+                 user_group_id, creation_date, modification_date)
+              SELECT 1, 1, 1, 1, ?, ?, ug.user_group_id, NOW(), NOW()
+              FROM user_group ug
+              WHERE NOT EXISTS (
+                SELECT 1
+                FROM mod_acc_room_user_group permission
+                WHERE permission.section_id = ?
+                  AND permission.user_group_id = ug.user_group_id
+              )`;
+
+            db.query(
+              grantPermissionsSql,
+              [section.section_id, reportSection.title, section.section_id],
+              (permissionError) => {
+                if (permissionError) {
+                  console.error(`Unable to grant ${reportSection.title} permissions:`, permissionError);
+                }
+              }
+            );
+          }
+        );
+      }
+    );
+  });
+}
+
+ensureReportSections();
+
 app.get('/getSection', (req, res, next) => {
   db.query(`Select *
   From section
@@ -136,6 +218,7 @@ app.post('/editSection', (req, res, next) => {
             req.body.modification_date
               )}
             ,groups=${db.escape(req.body.groups)}
+              ,groups=${db.escape(req.body.groups)}
             ,routes=${db.escape(req.body.routes)}
             ,internal_link=${db.escape(req.body.routes)}
             ,sort_order=${db.escape(req.body.sort_order)}

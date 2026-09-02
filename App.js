@@ -11,7 +11,6 @@ const cron = require("node-cron");
 var privateKey = fs.readFileSync("sslcrt/server.key", "utf8");
 var certificate = fs.readFileSync("sslcrt/server.crt", "utf8");
 var credentials = { key: privateKey, cert: certificate };
-const mysql = require('mysql2');
 const axios = require('axios');
 const moment = require("moment"); // ADDED: Moment.js for date manipulation
 
@@ -90,7 +89,9 @@ const projectteam = require("./routes/projectteam.js");
 const stats = require("./routes/stats.js");
 const lead = require("./routes/lead.js");
 const calendar = require("./routes/calendar.js");
+const weeklytarget = require("./routes/weeklytarget.js");
 
+app.use("/weeklytarget", weeklytarget);
 app.use("/invoice", invoice);
 app.use("/vehicle", vehicle);
 app.use("/note", note);
@@ -158,21 +159,7 @@ app.use(
   })
 );
 
-const dbRemote = mysql.createConnection({
-  host: '69.57.161.117',
-  port: 3306,
-  user: 'fhtraders_user',
-  password: '!@syed#$',
-  database: 'fhtraders'
-});
-
-dbRemote.connect((err) => {
-  if (err) {
-    console.error('Remote DB connection failed:', err);
-  } else {
-    console.log('Connected to remote database');
-  }
-});
+const dbRemote = project.dbRemote;
 
 // Run every day at 1:00 AM
 cron.schedule('0 1 * * *', async () => {
@@ -1091,8 +1078,250 @@ app.post("/send-leave-approvals", (req, res) => {
     }
   });
 });
+// ==============================
+// MONTHLY WORKING HOURS SUMMARY (1st of every month, 8 PM, via SMTP)
+// Fully dynamic — pulls employees and hours live from the database
+// ==============================
 
+const monthlyHoursTransporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || "premium128.web-hosting.com",
+  port: Number(process.env.SMTP_PORT) || 465,
+  secure: (process.env.SMTP_SECURE || "true") === "true",
+  auth: {
+    user: process.env.SMTP_USERNAME || "notification@unitdtechnologies.com",
+    pass: process.env.SMTP_PASSWORD || "notification777#",
+  },
+});
 
+function round1(n) {
+  return Math.round((Number(n) || 0) * 10) / 10;
+}
+
+cron.schedule(
+  "0 20 1 * *", // 8:00 PM on the 1st of every month
+  () => {
+    const prevMonthStart = moment().subtract(1, "months").startOf("month");
+    const prevMonthEnd = moment().subtract(1, "months").endOf("month");
+    const monthLabel = prevMonthStart.format("MMMM YYYY");
+    const startStr = prevMonthStart.format("YYYY-MM-DD");
+    const endStr = prevMonthEnd.format("YYYY-MM-DD");
+
+    // Pull every employee with an email, and their timesheet hours for last month.
+    // LEFT JOIN keeps employees even if they logged zero hours that month.
+    const query = `
+      SELECT
+        e.employee_id,
+        e.first_name,
+        e.email,
+        pt.date,
+        pt.hours
+      FROM employee e
+      LEFT JOIN project_timesheet pt
+        ON pt.employee_id = e.employee_id
+        AND pt.date BETWEEN ? AND ?
+      WHERE e.email IS NOT NULL AND e.email != ''
+      ORDER BY e.first_name
+    `;
+
+    db.query(query, [startStr, endStr], (err, rows) => {
+      if (err) {
+        console.error("Monthly hours summary query failed:", err);
+        return;
+      }
+
+      // Build per-employee weekly totals dynamically from whatever employees exist
+      const employees = {}; // employee_id -> { name, email, weeks: [0,0,0,0] }
+
+      rows.forEach((row) => {
+        if (!employees[row.employee_id]) {
+          employees[row.employee_id] = {
+            name: row.first_name || "(No name)",
+            email: row.email,
+            weeks: [0, 0, 0, 0],
+          };
+        }
+
+        if (row.date && row.hours) {
+          const dayOfMonth = moment(row.date, "YYYY-MM-DD").date();
+          let bucket = 3;
+          if (dayOfMonth <= 7) bucket = 0;
+          else if (dayOfMonth <= 14) bucket = 1;
+          else if (dayOfMonth <= 21) bucket = 2;
+          employees[row.employee_id].weeks[bucket] += Number(row.hours) || 0;
+        }
+      });
+
+      const employeeList = Object.values(employees);
+
+      if (employeeList.length === 0) {
+        console.log("Monthly hours summary: no employees found, skipping email.");
+        return;
+      }
+
+      // Build table rows + column totals
+      const weekTotals = [0, 0, 0, 0];
+      let grandTotal = 0;
+
+      const bodyRows = employeeList
+        .map((emp) => {
+          const rowTotal = emp.weeks.reduce((a, b) => a + b, 0);
+          emp.weeks.forEach((h, i) => (weekTotals[i] += h));
+          grandTotal += rowTotal;
+
+          return `
+            <tr>
+              <td style="border:1px solid #ccc; padding:8px;">${emp.name}</td>
+              <td style="border:1px solid #ccc; padding:8px;">${round1(emp.weeks[0])}</td>
+              <td style="border:1px solid #ccc; padding:8px;">${round1(emp.weeks[1])}</td>
+              <td style="border:1px solid #ccc; padding:8px;">${round1(emp.weeks[2])}</td>
+              <td style="border:1px solid #ccc; padding:8px;">${round1(emp.weeks[3])}</td>
+              <td style="border:1px solid #ccc; padding:8px;"><b>${round1(rowTotal)}</b></td>
+            </tr>`;
+        })
+        .join("");
+
+      const emailContent = `
+        <div style="font-family: Arial, sans-serif;">
+          <h2 style="margin-top:0;">${monthLabel} - UTS Monthly Working Hours Summary</h2>
+          <hr/>
+          <p>Dear Team,</p>
+          <p>Please find below the working hours summary for each staff for ${monthLabel} (Week 1 to Week 4).</p>
+          <table style="border-collapse: collapse; width: 100%;">
+            <thead>
+              <tr>
+                <th style="border:1px solid #ccc; padding:8px; text-align:left;">Staff name</th>
+                <th style="border:1px solid #ccc; padding:8px; text-align:left;">Week 1</th>
+                <th style="border:1px solid #ccc; padding:8px; text-align:left;">Week 2</th>
+                <th style="border:1px solid #ccc; padding:8px; text-align:left;">Week 3</th>
+                <th style="border:1px solid #ccc; padding:8px; text-align:left;">Week 4</th>
+                <th style="border:1px solid #ccc; padding:8px; text-align:left; color:#2563eb;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${bodyRows}
+              <tr>
+                <td style="border:1px solid #ccc; padding:8px;"><b>Total</b></td>
+                <td style="border:1px solid #ccc; padding:8px;"><b>${round1(weekTotals[0])}</b></td>
+                <td style="border:1px solid #ccc; padding:8px;"><b>${round1(weekTotals[1])}</b></td>
+                <td style="border:1px solid #ccc; padding:8px;"><b>${round1(weekTotals[2])}</b></td>
+                <td style="border:1px solid #ccc; padding:8px;"><b>${round1(weekTotals[3])}</b></td>
+                <td style="border:1px solid #ccc; padding:8px; color:#2563eb;"><b>${round1(grandTotal)}</b></td>
+              </tr>
+            </tbody>
+          </table>
+          <p style="color:#888; font-size:13px;">Note: the hours are calculated based on logged working time. Please reach out to your manager for any discrepancies.</p>
+          <p>Regards,<br/>Admin team</p>
+        </div>
+      `;
+
+      monthlyHoursTransporter.sendMail(
+        {
+          from: process.env.SMTP_FROM || "notification@unitdtechnologies.com",
+          replyTo: process.env.SMTP_REPLY_TO || "notification@unitdtechnologies.com",
+          to: employeeList.map((e) => e.email).join(","),
+          subject: `${monthLabel} - UTS Monthly Working Hours Summary`,
+          html: emailContent,
+        },
+        (err, info) => {
+          if (err) {
+            console.error("Monthly hours summary email failed:", err);
+          } else {
+            console.log("Monthly hours summary email sent:", info.response);
+          }
+        }
+      );
+    });
+  },
+  {
+    timezone: "Asia/Kolkata",
+  }
+);
+// ==============================
+// TEMPORARY TEST ROUTE — remove after confirming the monthly summary works
+// Visit this URL in your browser to trigger the same logic manually,
+// using LAST month's real data, without waiting for the schedule.
+// ==============================
+app.get("/test-monthly-hours-summary", (req, res) => {
+  const year = req.query.year ? parseInt(req.query.year) : null;
+  const month = req.query.month ? parseInt(req.query.month) - 1 : null; // JS months are 0-indexed
+
+  const targetMonth = (year && month !== null)
+    ? moment().year(year).month(month)
+    : moment().subtract(1, "months");
+
+  const prevMonthStart = targetMonth.clone().startOf("month");
+  const prevMonthEnd = targetMonth.clone().endOf("month");
+  const monthLabel = prevMonthStart.format("MMMM YYYY");
+  const startStr = prevMonthStart.format("YYYY-MM-DD");
+  const endStr = prevMonthEnd.format("YYYY-MM-DD");
+
+  const query = `
+    SELECT
+      e.employee_id,
+      e.first_name,
+      e.email,
+      pt.date,
+      pt.hours
+    FROM employee e
+    LEFT JOIN project_timesheet pt
+      ON pt.employee_id = e.employee_id
+      AND pt.date BETWEEN ? AND ?
+    WHERE e.email IS NOT NULL AND e.email != ''
+    ORDER BY e.first_name
+  `;
+
+  db.query(query, [startStr, endStr], (err, rows) => {
+    if (err) {
+      console.error("Test query failed:", err);
+      return res.status(500).send("Query failed: " + err.message);
+    }
+
+    const employees = {};
+    rows.forEach((row) => {
+      if (!employees[row.employee_id]) {
+        employees[row.employee_id] = {
+          name: row.first_name || "(No name)",
+          email: row.email,
+          weeks: [0, 0, 0, 0],
+        };
+      }
+      if (row.date && row.hours) {
+        const dayOfMonth = moment(row.date, "YYYY-MM-DD").date();
+        let bucket = 3;
+        if (dayOfMonth <= 7) bucket = 0;
+        else if (dayOfMonth <= 14) bucket = 1;
+        else if (dayOfMonth <= 21) bucket = 2;
+        employees[row.employee_id].weeks[bucket] += Number(row.hours) || 0;
+      }
+    });
+
+    const employeeList = Object.values(employees);
+    const weekTotals = [0, 0, 0, 0];
+    let grandTotal = 0;
+
+    const bodyRows = employeeList
+      .map((emp) => {
+        const rowTotal = emp.weeks.reduce((a, b) => a + b, 0);
+        emp.weeks.forEach((h, i) => (weekTotals[i] += h));
+        grandTotal += rowTotal;
+        return `<tr><td>${emp.name}</td><td>${emp.weeks[0].toFixed(2)}</td><td>${emp.weeks[1].toFixed(2)}</td><td>${emp.weeks[2].toFixed(2)}</td><td>${emp.weeks[3].toFixed(2)}</td><td><b>${rowTotal.toFixed(2)}</b></td></tr>`;
+      })
+      .join("");
+
+    const html = `
+      <h2>${monthLabel} - TEST PREVIEW (not sent as email)</h2>
+      <p>Date range checked: ${startStr} to ${endStr}</p>
+      <table border="1" cellpadding="6" style="border-collapse: collapse;">
+        <tr><th>Staff name</th><th>Week 1</th><th>Week 2</th><th>Week 3</th><th>Week 4</th><th>Total</th></tr>
+        ${bodyRows}
+        <tr><td><b>Total</b></td><td><b>${weekTotals[0].toFixed(2)}</b></td><td><b>${weekTotals[1].toFixed(2)}</b></td><td><b>${weekTotals[2].toFixed(2)}</b></td><td><b>${weekTotals[3].toFixed(2)}</b></td><td><b>${grandTotal.toFixed(2)}</b></td></tr>
+      </table>
+      <p>Recipients (${employeeList.length}): ${employeeList.map(e => e.email).join(", ")}</p>
+    `;
+
+    res.send(html);
+  });
+});
 module.exports = app;
 
 

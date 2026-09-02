@@ -24,22 +24,28 @@ app.use(fileUpload({
 }));
 
 
-// ✅ Extra DB connection for remote server (66.29.154.85)
-const mysql = require('mysql');
+// ✅ Extra DB connection for remote server
+// AFTER
+const mysql2 = require('mysql2');
 
-const dbRemote = mysql.createConnection({
-  host: '69.57.161.117',
-  port: 3306,
-  user: 'fhtraders_user',
-  password: '!@syed#$',
-  database: 'fhtraders'
+const dbRemote = mysql2.createPool({
+  host: process.env.REMOTE_DB_HOST || '69.57.161.117',
+  port: process.env.REMOTE_DB_PORT || 3306,
+  user: process.env.REMOTE_DB_USER || 'fhtraders_user',
+  password: process.env.REMOTE_DB_PASSWORD || '!@syed#$',
+  database: process.env.REMOTE_DB_NAME || 'fhtraders',
+  waitForConnections: true,
+  connectionLimit: 5,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 0,
 });
 
-dbRemote.connect((err) => {
+dbRemote.getConnection((err, connection) => {
   if (err) {
     console.error('Remote DB connection failed:', err);
   } else {
     console.log('Connected to remote database');
+    connection.release();
   }
 });
 
@@ -396,10 +402,19 @@ FROM project p
 WHERE p.project_id !='' 
   AND (p.general = 0 OR p.general IS NULL)
   AND p.status = 'WIP'
-GROUP BY p.title DESC`,
-    (err, result) => {
-       
-      if (result.length == 0) {
+GROUP BY p.title
+ORDER BY p.title DESC`,
+      (err, result) => {
+
+      if (err) {
+        console.log('error: ', err);
+        return res.status(400).send({
+          data: err,
+          msg: 'failed',
+        });
+      }
+
+      if (!result || result.length == 0) {
         return res.status(400).send({
           msg: 'No result found'
         });
@@ -516,10 +531,19 @@ LEFT JOIN project_milestone pt ON p.project_id = pt.project_id
 WHERE p.project_id !='' 
   AND (p.general = 0 OR p.general IS NULL)
   AND p.status = 'WIP'
-GROUP BY p.title DESC`,
-    (err, result) => {
-       
-      if (result.length == 0) {
+GROUP BY p.title
+ORDER BY p.title DESC`,
+  (err, result) => {
+
+      if (err) {
+        console.log('error: ', err);
+        return res.status(400).send({
+          data: err,
+          msg: 'failed',
+        });
+      }
+
+      if (!result || result.length == 0) {
         return res.status(400).send({
           msg: 'No result found'
         });
@@ -1094,24 +1118,10 @@ AND project_id = p.project_id) as office_overheads
 });
 
 
-// app.get("/aapanel-status", async (req, res) => {
-//   try {
-//     const response = await axios.post(
-//       "http://43.228.126.245:7800/system?action=GetSystemTotal",
-//       qs.stringify({ request_token: "ucUWy0eJCRhkuqKwYhhnkjNPfcBrbqG2" }), // form data
-//       { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
-//     );
-//     res.json(response.data);
-//   } catch (err) {
-//     console.error("Error fetching aaPanel status:", err.message);
-//     res.status(500).json({ error: "Failed to fetch aaPanel status" });
-//   }
-// });
-
-
 app.get('/secret-route', userMiddleware.isLoggedIn, (req, res, next) => {
   console.log(req.userData);
   res.send('This is the secret content. Only logged in users can see that!');
 });
 
+app.dbRemote = dbRemote;
 module.exports = app;
