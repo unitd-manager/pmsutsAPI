@@ -28,16 +28,17 @@ app.use(fileUpload({
 const DATE_FMT = "'%Y-%m-%d'"; // MySQL DATE_FORMAT pattern, kept as a const so every query matches
 
 // Helper: work out delay_days server-side so the frontend never has to.
-function computeDelayDays({ status, extended_due_date, completion_date }) {
-  if (!extended_due_date) return 0;
+// Delay is measured against the DL (due_date), not the EDL (extended_due_date).
+function computeDelayDays({ status, due_date, completion_date }) {
+  if (!due_date) return 0;
 
   if (status === 'Completed' && completion_date) {
-    const diff = moment(completion_date).startOf('day').diff(moment(extended_due_date).startOf('day'), 'days');
+    const diff = moment(completion_date).startOf('day').diff(moment(due_date).startOf('day'), 'days');
     return diff > 0 ? diff : 0;
   }
 
   if (status === 'Delayed' || status === 'InProgress' || status === 'Pending') {
-    const diff = moment().startOf('day').diff(moment(extended_due_date).startOf('day'), 'days');
+    const diff = moment().startOf('day').diff(moment(due_date).startOf('day'), 'days');
     return diff > 0 ? diff : 0;
   }
 
