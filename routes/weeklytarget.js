@@ -12,6 +12,21 @@ app.use(fileUpload({
   createParentPath: true
 }));
 
+// ------------------------------------------------------------------
+// Why the "one day earlier" bug happens:
+// MySQL DATE/DATETIME columns get converted into JS Date objects by
+// the mysql/mysql2 driver on the way OUT of the database. That
+// conversion applies a timezone offset. For IST (UTC+5:30) that shift
+// can land you on the previous calendar day by the time the value is
+// JSON.stringify'd and formatted in the browser.
+//
+// Fix: never let a date column leave MySQL as a native value. Force
+// it to a plain 'YYYY-MM-DD' string with DATE_FORMAT() in the SQL
+// itself. A string can't be timezone-shifted.
+// ------------------------------------------------------------------
+
+const DATE_FMT = "'%Y-%m-%d'"; // MySQL DATE_FORMAT pattern, kept as a const so every query matches
+
 // Helper: work out delay_days server-side so the frontend never has to.
 function computeDelayDays({ status, extended_due_date, completion_date }) {
   if (!extended_due_date) return 0;
@@ -40,12 +55,12 @@ app.get('/getWeeklyTarget', (req, res) => {
       wt.employee_id,
       e.first_name,
       wt.target_title,
-      wt.week_start_date,
-      wt.week_end_date,
-      wt.due_date,
-      wt.extended_due_date,
+      DATE_FORMAT(wt.week_start_date, ${DATE_FMT}) AS week_start_date,
+      DATE_FORMAT(wt.week_end_date, ${DATE_FMT}) AS week_end_date,
+      DATE_FORMAT(wt.due_date, ${DATE_FMT}) AS due_date,
+      DATE_FORMAT(wt.extended_due_date, ${DATE_FMT}) AS extended_due_date,
       wt.status,
-      wt.completion_date,
+      DATE_FORMAT(wt.completion_date, ${DATE_FMT}) AS completion_date,
       wt.delay_days,
       wt.remarks
     FROM project_weekly_target wt
@@ -76,12 +91,12 @@ app.post('/getWeeklyTargetProjectById', (req, res) => {
       wt.employee_id,
       e.first_name,
       wt.target_title,
-      wt.week_start_date,
-      wt.week_end_date,
-      wt.due_date,
-      wt.extended_due_date,
+      DATE_FORMAT(wt.week_start_date, ${DATE_FMT}) AS week_start_date,
+      DATE_FORMAT(wt.week_end_date, ${DATE_FMT}) AS week_end_date,
+      DATE_FORMAT(wt.due_date, ${DATE_FMT}) AS due_date,
+      DATE_FORMAT(wt.extended_due_date, ${DATE_FMT}) AS extended_due_date,
       wt.status,
-      wt.completion_date,
+      DATE_FORMAT(wt.completion_date, ${DATE_FMT}) AS completion_date,
       wt.delay_days,
       wt.remarks
     FROM project_weekly_target wt
@@ -117,12 +132,12 @@ app.post('/getWeeklyTargetByWeek', (req, res) => {
       wt.employee_id,
       e.first_name,
       wt.target_title,
-      wt.week_start_date,
-      wt.week_end_date,
-      wt.due_date,
-      wt.extended_due_date,
+      DATE_FORMAT(wt.week_start_date, ${DATE_FMT}) AS week_start_date,
+      DATE_FORMAT(wt.week_end_date, ${DATE_FMT}) AS week_end_date,
+      DATE_FORMAT(wt.due_date, ${DATE_FMT}) AS due_date,
+      DATE_FORMAT(wt.extended_due_date, ${DATE_FMT}) AS extended_due_date,
       wt.status,
-      wt.completion_date,
+      DATE_FORMAT(wt.completion_date, ${DATE_FMT}) AS completion_date,
       wt.delay_days,
       wt.remarks
     FROM project_weekly_target wt
@@ -144,7 +159,21 @@ app.post('/getWeeklyTargetByWeek', (req, res) => {
 // POST single record by id (for the edit modal)
 // ------------------------------------------------------------------
 app.post('/getWeeklyTargetById', (req, res) => {
-  db.query(`SELECT * FROM project_weekly_target WHERE weekly_target_id = ${db.escape(req.body.weekly_target_id)}`,
+  db.query(`SELECT
+      weekly_target_id,
+      project_id,
+      employee_id,
+      target_title,
+      DATE_FORMAT(week_start_date, ${DATE_FMT}) AS week_start_date,
+      DATE_FORMAT(week_end_date, ${DATE_FMT}) AS week_end_date,
+      DATE_FORMAT(due_date, ${DATE_FMT}) AS due_date,
+      DATE_FORMAT(extended_due_date, ${DATE_FMT}) AS extended_due_date,
+      status,
+      DATE_FORMAT(completion_date, ${DATE_FMT}) AS completion_date,
+      delay_days,
+      remarks
+    FROM project_weekly_target
+    WHERE weekly_target_id = ${db.escape(req.body.weekly_target_id)}`,
     (err, result) => {
       if (err) {
         console.log('error: ', err);
