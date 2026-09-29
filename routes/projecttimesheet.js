@@ -257,7 +257,8 @@ app.post('/getTimeSheetProjectById', (req, res, next) => {
 LEFT JOIN (employee e) ON (pt.employee_id = e.employee_id)
 LEFT JOIN (project_task t) ON (pt.project_task_id = t.project_task_id)
 LEFT JOIN (project_milestone m) ON (pt.project_milestone_id = m.project_milestone_id)
-Where pt.project_id=${db.escape(req.body.project_id)}`,
+Where pt.project_id=${db.escape(req.body.project_id)}
+ORDER BY pt.date DESC, pt.project_timesheet_id DESC`,
   (err, result) => {
     if (err) {
       console.log('error: ', err)
