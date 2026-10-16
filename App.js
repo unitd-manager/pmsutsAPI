@@ -314,6 +314,7 @@ cron.schedule(
               FROM project_timesheet pt2
               WHERE pt2.employee_id = pt.employee_id
                 AND pt2.project_task_id = pt.project_task_id
+                AND pt2.date >= ? AND pt2.date < DATE_ADD(?, INTERVAL 1 DAY)
              ) AS actual_hours
            FROM project_timesheet pt
            LEFT JOIN project p ON pt.project_id = p.project_id
@@ -321,7 +322,7 @@ cron.schedule(
            INNER JOIN employee e ON pt.employee_id = e.employee_id
            WHERE pt.date >= ? AND pt.date < DATE_ADD(?, INTERVAL 1 DAY)
            ORDER BY e.first_name, p.title, pt.date, pt.project_timesheet_id`,
-          [currentDate, currentDate],
+          [currentDate, currentDate, currentDate, currentDate],
           (err, result) => {
             if (err) {
               reject(err);
@@ -352,7 +353,7 @@ cron.schedule(
         </style>
 
         <p>Dear Team,</p>
-        <p>Please find today's timesheet details:</p>
+        <p>Please find the timesheet details for ${currentDate}:</p>
         <table>
           <tr>
             <th>Employee</th>
