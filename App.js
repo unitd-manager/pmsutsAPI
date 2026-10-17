@@ -290,11 +290,11 @@ const employees = [
 ];
 
 // ==============================
-// DAILY TIMESHEET MAIL — now runs at 5:00 PM IST (Mon–Sat)
+// DAILY TIMESHEET MAIL — now runs at 8:00 PM IST (Mon–Sat)
 // Date is calculated inside the cron on every run.
 // ==============================
 cron.schedule(
-  "0 17 * * 1-6",
+  "0 20 * * 1-6",
   async () => {
     try {
       const currentDate = moment().utcOffset(330).format("YYYY-MM-DD");
