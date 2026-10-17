@@ -289,8 +289,12 @@ const employees = [
  
 ];
 
+// ==============================
+// DAILY TIMESHEET MAIL — now runs at 11:30 AM IST (Mon–Sat)
+// (was 8:30 PM). Date is calculated inside the cron on every run.
+// ==============================
 cron.schedule(
-  "30 20 * * 1-6",
+  "30 11 * * 1-6",
   async () => {
     try {
       const currentDate = moment().utcOffset(330).format("YYYY-MM-DD");
@@ -753,9 +757,48 @@ cron.schedule(
 sgMail.setApiKey("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");
 
 
+// ==============================
+// DUPLICATE-SEND GUARD (used by the weekly leave overview mail)
+// Only the first process to claim a job key can send. Works even if two
+// app instances (pm2 duplicate, old process, another machine) fire together,
+// because the claim is a unique-key INSERT in the shared database.
+// ==============================
+db.query(
+  `CREATE TABLE IF NOT EXISTS cron_run_lock (
+     job_key VARCHAR(100) NOT NULL PRIMARY KEY,
+     locked_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+   )`,
+  (err) => {
+    if (err) console.error("cron_run_lock table create failed:", err);
+  }
+);
+
+function claimCronRun(jobKey, callback) {
+  db.query(
+    "INSERT IGNORE INTO cron_run_lock (job_key) VALUES (?)",
+    [jobKey],
+    (err, result) => {
+      if (err) {
+        // If the guard itself fails, send anyway so the mail is not lost.
+        console.error("claimCronRun failed, sending without guard:", err);
+        return callback(true);
+      }
+      callback(result.affectedRows === 1);
+    }
+  );
+}
+
 cron.schedule(
   "0 9 * * 6", // Every Saturday at 9 AM
   () => {
+    const leaveJobKey = `weekly-leave-overview-${moment().utcOffset(330).format("YYYY-MM-DD")}`;
+
+    claimCronRun(leaveJobKey, (canRun) => {
+    if (!canRun) {
+      console.log(`Skipping duplicate run of ${leaveJobKey}`);
+      return;
+    }
+
     db.query(
       "SELECT employee_id, first_name FROM employee WHERE employee_id != ''",
       (err, employees) => {
@@ -922,6 +965,7 @@ ORDER BY e.first_name
         });
       }
     );
+    }); // end claimCronRun
   },
   {
     timezone: "Asia/Kolkata",
