@@ -242,6 +242,163 @@ cron.schedule('0 1 * * *', async () => {
 
 
 
+// const transporter = nodemailer.createTransport({
+//  host: "premium128.web-hosting.com",
+//     port: 465,
+//     secure: true,
+//   auth: {
+//    user: "notification@unitdtechnologies.com",
+//     pass: "notification777#",
+//   },
+// });
+
+
+// const date = new Date();
+
+// const employees = [
+  
+//   {
+//     name: "Gobi",
+//   },
+
+// {
+//     name: "Andhuna",
+//   },
+   
+//   {
+//     name: "Muthumari",
+//   },
+//   {
+//     name: "Jasmine",
+//   },
+//    {
+//     name: "Nabeela",
+//   },
+//    {
+//     name: "Mirzath",
+//   },
+//    {
+//     name: "Bushra",
+//   },
+//   {
+//     name: "Ponmalar",
+//   },
+  
+ 
+
+ 
+// ];
+
+// // ==============================
+// // DAILY TIMESHEET MAIL — now runs at 5:00 PM IST (Mon–Sat)
+// // Date is calculated inside the cron on every run.
+// // ==============================
+// cron.schedule(
+//   "0 17 * * 1-6",
+//   async () => {
+//     try {
+//       const currentDate = moment().utcOffset(330).format("YYYY-MM-DD");
+//       const rows = await new Promise((resolve, reject) => {
+//         db.query(
+//           `SELECT
+//              pt.timesheet_title,
+//              t.task_title,
+//              pt.date,
+//              p.title,
+//              pt.status,
+//              e.first_name,
+//              e.employee_id,
+//              p.project_id,
+//              pt.project_timesheet_id,
+//              pt.description,
+//              pt.hours,
+//              pt.project_milestone_id,
+//              pt.project_task_id,
+//              (SELECT SUM(pt2.hours)
+//               FROM project_timesheet pt2
+//               WHERE pt2.employee_id = pt.employee_id
+//                 AND pt2.project_task_id = pt.project_task_id
+//                 AND pt2.date >= ? AND pt2.date < DATE_ADD(?, INTERVAL 1 DAY)
+//              ) AS actual_hours
+//            FROM project_timesheet pt
+//            LEFT JOIN project p ON pt.project_id = p.project_id
+//            LEFT JOIN project_task t ON t.project_task_id = pt.project_task_id
+//            INNER JOIN employee e ON pt.employee_id = e.employee_id
+//            WHERE pt.date >= ? AND pt.date < DATE_ADD(?, INTERVAL 1 DAY)
+//            ORDER BY e.first_name, p.title, pt.date, pt.project_timesheet_id`,
+//           [currentDate, currentDate, currentDate, currentDate],
+//           (err, result) => {
+//             if (err) {
+//               reject(err);
+//               return;
+//             }
+//             resolve(result);
+//           }
+//         );
+//       });
+
+//       if (rows.length === 0) {
+//         console.log(`No timesheet entries for ${currentDate}; skipping daily email.`);
+//         return;
+//       }
+
+//       let emailContent = `
+//         <style>
+//           table {
+//             border-collapse: collapse;
+//             width: 100%;
+//             border: 1px solid black;
+//           }
+//           th, td {
+//             border: 1px solid black;
+//             padding: 5px;
+//             text-align: left;
+//           }
+//         </style>
+
+//         <p>Dear Team,</p>
+//         <p>Please find the timesheet details for ${currentDate}:</p>
+//         <table>
+//           <tr>
+//             <th>Employee</th>
+//             <th>Project</th>
+//             <th>Task</th>
+//             <th>Hrs</th>
+//             <th>Description</th>
+//             <th>Total Hrs</th>
+//           </tr>
+//           ${rows.map((row) => `
+//             <tr>
+//               <td>${row.first_name || ""}</td>
+//               <td>${row.title || ""}</td>
+//               <td>${row.task_title || ""}</td>
+//               <td>${row.hours ?? ""}</td>
+//               <td>${row.description || ""}</td>
+//               <td>${row.actual_hours || 0}</td>
+//             </tr>
+//           `).join("")}
+//         </table>
+//       `;
+
+//       emailContent += `<p>Regards<br/>Admin</p>`;
+
+//       await transporter.sendMail({
+//         from: '"UTS Notifications" <notification@unitdtechnologies.com>',
+//           to: ["syed@unitdtechnologies.com","gobi@unitdtechnologies.com","andhuna@unitdtechnologies.com","muthumari@unitdtechnologies.com","jasmine@unitdtechnologies.com","nabeela@unitdtechnologies.com","mirzath@unitdtechnologies.com","bushra@unitdtechnologies.com", "ponmalar@unitdtechnologies.com"],
+//         subject: `${currentDate} UTS Tasks Overview`,
+//         html: emailContent,
+//       });
+
+//       console.log("✅ Cron email sent successfully");
+
+//     } catch (error) {
+//       console.error("❌ Cron email failed:", error);
+//     }
+//   },
+//   {
+//     timezone: "Asia/Kolkata",
+//   }
+// );
 const transporter = nodemailer.createTransport({
  host: "premium128.web-hosting.com",
     port: 465,
@@ -254,6 +411,14 @@ const transporter = nodemailer.createTransport({
 
 
 const date = new Date();
+
+let currentDay = String(date.getDate()).padStart(2, "0");
+
+let currentMonth = String(date.getMonth() + 1).padStart(2, "0");
+
+let currentYear = date.getFullYear();
+
+let currentDate = `${currentYear}-${currentMonth}-${currentDay}`;
 
 const employees = [
   
@@ -289,59 +454,10 @@ const employees = [
  
 ];
 
-// ==============================
-// DAILY TIMESHEET MAIL — now runs at 5:00 PM IST (Mon–Sat)
-// Date is calculated inside the cron on every run.
-// ==============================
 cron.schedule(
-  "0 17 * * 1-6",
-  async () => {
+  "30 20 * * 1-6",
+  async () => {   // ✅ async here
     try {
-      const currentDate = moment().utcOffset(330).format("YYYY-MM-DD");
-      const rows = await new Promise((resolve, reject) => {
-        db.query(
-          `SELECT
-             pt.timesheet_title,
-             t.task_title,
-             pt.date,
-             p.title,
-             pt.status,
-             e.first_name,
-             e.employee_id,
-             p.project_id,
-             pt.project_timesheet_id,
-             pt.description,
-             pt.hours,
-             pt.project_milestone_id,
-             pt.project_task_id,
-             (SELECT SUM(pt2.hours)
-              FROM project_timesheet pt2
-              WHERE pt2.employee_id = pt.employee_id
-                AND pt2.project_task_id = pt.project_task_id
-                AND pt2.date >= ? AND pt2.date < DATE_ADD(?, INTERVAL 1 DAY)
-             ) AS actual_hours
-           FROM project_timesheet pt
-           LEFT JOIN project p ON pt.project_id = p.project_id
-           LEFT JOIN project_task t ON t.project_task_id = pt.project_task_id
-           INNER JOIN employee e ON pt.employee_id = e.employee_id
-           WHERE pt.date >= ? AND pt.date < DATE_ADD(?, INTERVAL 1 DAY)
-           ORDER BY e.first_name, p.title, pt.date, pt.project_timesheet_id`,
-          [currentDate, currentDate, currentDate, currentDate],
-          (err, result) => {
-            if (err) {
-              reject(err);
-              return;
-            }
-            resolve(result);
-          }
-        );
-      });
-
-      if (rows.length === 0) {
-        console.log(`No timesheet entries for ${currentDate}; skipping daily email.`);
-        return;
-      }
-
       let emailContent = `
         <style>
           table {
@@ -357,34 +473,96 @@ cron.schedule(
         </style>
 
         <p>Dear Team,</p>
-        <p>Please find the timesheet details for ${currentDate}:</p>
-        <table>
-          <tr>
-            <th>Employee</th>
-            <th>Project</th>
-            <th>Task</th>
-            <th>Hrs</th>
-            <th>Description</th>
-            <th>Total Hrs</th>
-          </tr>
-          ${rows.map((row) => `
-            <tr>
-              <td>${row.first_name || ""}</td>
-              <td>${row.title || ""}</td>
-              <td>${row.task_title || ""}</td>
-              <td>${row.hours ?? ""}</td>
-              <td>${row.description || ""}</td>
-              <td>${row.actual_hours || 0}</td>
-            </tr>
-          `).join("")}
-        </table>
+        <p>Please find today's timesheet details:</p>
       `;
+
+      const emailPromises = employees.map((employee) => {
+           const employeeName = employee.name;
+
+        return new Promise((resolve, reject) => {
+          db.query(
+            `SELECT 
+           pt.timesheet_title,
+           t.task_title,
+           pt.date,
+           p.title,
+           pt.status,
+           e.first_name,
+           e.employee_id,
+           p.project_id,
+           pt.project_timesheet_id,
+           pt.description,
+           pt.hours,
+           pt.project_milestone_id,
+           pt.project_task_id,
+           (SELECT SUM(pt2.hours)
+            FROM project_timesheet pt2
+            WHERE t.employee_id = e.employee_id AND pt2.project_task_id = t.project_task_id
+           ) AS actual_hours
+         FROM project_timesheet pt
+         LEFT JOIN project p ON pt.project_id = p.project_id
+         LEFT JOIN project_task t ON t.project_task_id = pt.project_task_id
+         LEFT JOIN employee e ON pt.employee_id = e.employee_id
+         LEFT JOIN project_milestone m ON m.project_milestone_id = pt.project_milestone_id
+            WHERE pt.date = '${currentDate}' AND e.first_name = '${employeeName}'`,
+            
+            (err, result) => {
+               if (err) {
+      console.log(`Error fetching timesheet data for ${employeeName}:`, err);
+      reject(err);
+      return;
+    }
+     console.log("Employee:", employeeName);
+console.log("Rows:", result.length);
+             
+                const rows = result.map(row => `
+                  <tr>
+                    <td>${row.first_name}</td>
+                    <td>${row.title}</td>
+                    <td>${row.task_title}</td>
+                    <td>${row.hours}</td>
+                    <td>${row.description}</td>
+                    <td>${row.actual_hours || 0}</td>
+                  </tr>
+                `).join("");
+
+                emailContent += `
+                  <p><b>Employee Name:</b> ${employee.name}</p>
+                  <table>
+                    <tr>
+                      <th>Name</th>
+                      <th>Project</th>
+                      <th>Task</th>
+                      <th>Hrs</th>
+                      <th>Description</th>
+                      <th>Total Hrs</th>
+                    </tr>
+                    ${rows}
+                  </table><br/>
+                `;
+              
+
+              resolve();
+            }
+          );
+        });
+      });
+
+      await Promise.all(emailPromises);
 
       emailContent += `<p>Regards<br/>Admin</p>`;
 
       await transporter.sendMail({
         from: '"UTS Notifications" <notification@unitdtechnologies.com>',
-          to: ["syed@unitdtechnologies.com","gobi@unitdtechnologies.com","andhuna@unitdtechnologies.com","muthumari@unitdtechnologies.com","jasmine@unitdtechnologies.com","nabeela@unitdtechnologies.com","mirzath@unitdtechnologies.com","bushra@unitdtechnologies.com", "ponmalar@unitdtechnologies.com"],
+        to: ["syed@unitdtechnologies.com",
+        "gobi@unitdtechnologies.com",
+        "andhuna@unitdtechnologies.com",
+        "muthumari@unitdtechnologies.com",
+        "jasmine@unitdtechnologies.com",
+        "nabeela@unitdtechnologies.com",
+        "mirzath@unitdtechnologies.com",
+        "bushra@unitdtechnologies.com", 
+        "ponmalar@unitdtechnologies.com"],
         subject: `${currentDate} UTS Tasks Overview`,
         html: emailContent,
       });
@@ -399,6 +577,7 @@ cron.schedule(
     timezone: "Asia/Kolkata",
   }
 );
+
 
 
 
